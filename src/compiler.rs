@@ -33,6 +33,13 @@ impl<'a> Compiler<'a>
 }
 
 #[inline]
+pub fn to_object_file(path : &mut PathBuf, out : &str) -> String
+{
+    path.set_extension("o");
+    return format!("{}/{}", out, path.file_name().unwrap().to_str().unwrap());
+}
+
+#[inline]
 pub fn is_cpp_source_file(file : &String) -> bool
 {
     return file.ends_with(".cpp") || file.ends_with(".cxx") || file.ends_with(".cc");
@@ -50,12 +57,11 @@ pub fn compile_to_object_files(compile_info : &Compiler)
         cprintln!("<green><bold>Compiling </bold>'{}'...</green>", file);
 
         let mut out_file_path = PathBuf::from(file);
-        out_file_path.set_extension("o");
-
-        let out = format!("{}/{}", compile_info.out, out_file_path.file_name().unwrap().to_str().unwrap());
+        let out = to_object_file(&mut out_file_path, compile_info.out);
 
         let output = Command::new(compile_info.name)
                                      .arg(&file)
+                                     .arg("-fdiagnostics-color")
                                      .arg("-c")
                                      .arg("-o")
                                      .arg(out)
@@ -67,7 +73,6 @@ pub fn compile_to_object_files(compile_info : &Compiler)
             let s = String::from_utf8_lossy(&output.stderr);
             eprintln!("{}\n{}", s, cformat!("<red><bold>ERROR:</bold></red> Failed to compile '{}'\nTerminating compilation.", file));
         }
-        const EXIT_FAILURE : i32 = 1;
-        exit(EXIT_FAILURE);
+        return;
     });
 }
