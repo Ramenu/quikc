@@ -1,15 +1,16 @@
-use std::{process::{Command, exit}, sync::atomic::AtomicUsize, path::PathBuf};
+use std::{process::{Command}, path::PathBuf};
 use color_print::{cprintln, cformat};
 use rayon::prelude::*;
-use std::sync::atomic::Ordering;
 use std::path::Path;
+
+use crate::buildtable::{BUILD_TABLE_OBJECT_FILE_DIRECTORY};
 
 pub struct Compiler<'a>
 {
     name : &'static str,
     source_files : &'a Vec<String>,
     compile_flags : &'static str,
-    out : &'static str
+    binary_name : &'static str
 }
 
 impl<'a> Compiler<'a>
@@ -17,26 +18,22 @@ impl<'a> Compiler<'a>
     pub fn new(name : &'static str, 
                source_files : &'a Vec<String>, 
                compile_flags : &'static str,
-               out : &'static str) -> Compiler<'a>
+               binary_name : &'static str) -> Compiler<'a>
     {
-        if !Path::new(out).is_dir() {
-            std::fs::create_dir(out).expect("Failed to create directory");
-        }
-
         return Compiler {
             name,
             source_files,
             compile_flags,
-            out
+            binary_name
         };
     }
 }
 
 #[inline]
-pub fn to_object_file(path : &mut PathBuf, out : &str) -> String
+pub fn to_output_file(path : &mut PathBuf, directory : &str, ext : &str) -> String
 {
-    path.set_extension("o");
-    return format!("{}/{}", out, path.file_name().unwrap().to_str().unwrap());
+    path.set_extension(ext);
+    return format!("{}/{}", directory, path.file_name().unwrap().to_str().unwrap());
 }
 
 #[inline]
@@ -57,21 +54,28 @@ pub fn compile_to_object_files(compile_info : &Compiler)
         cprintln!("<green><bold>Compiling </bold>'{}'...</green>", file);
 
         let mut out_file_path = PathBuf::from(file);
-        let out = to_object_file(&mut out_file_path, compile_info.out);
+        let out = to_output_file(&mut out_file_path, BUILD_TABLE_OBJECT_FILE_DIRECTORY, "o");
 
         let output = Command::new(compile_info.name)
                                      .arg(&file)
                                      .arg("-fdiagnostics-color")
                                      .arg("-c")
                                      .arg("-o")
-                                     .arg(out)
+                                     .arg(&out)
                                      .output()
                                      .expect("Failed to execute process");
 
 
         if !output.status.success() {
             let s = String::from_utf8_lossy(&output.stderr);
-            eprintln!("{}\n{}", s, cformat!("<red><bold>ERROR:</bold></red> Failed to compile '{}'\nTerminating compilation.", file));
+            eprintln!("{}\n{}", s, cformat!("<red><bold>error:</bold></red> Failed to compile '{}'\nTerminating compilation.", file));
+
+            // If there is a object file present from earlier compilations, remove it so that
+            // the next time the program is run, it will know that an error occurred so it can
+            // recompile it.
+            if Path::new(&out).exists() {
+                std::fs::remove_file(&out).expect("Failed to remove object file from build directory");
+            }
         }
         return;
     });
