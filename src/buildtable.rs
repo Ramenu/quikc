@@ -121,7 +121,6 @@ impl BuildTable
                 let hash_1 = sha_1.finalize();
                 let hash_2 = sha_2.finalize();
 
-                println!("{} and {} hashes are same: {}", &build_preprocessor_file, &source_preprocessor_file, hash_1 == hash_2);
                 if hash_1 != hash_2 {
                     let original = &source_preprocessor_file[..source_preprocessor_file.len() - 1];
                     fs::rename(&source_preprocessor_file, original).expect("Failed to rename file");

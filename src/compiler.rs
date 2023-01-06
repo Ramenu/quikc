@@ -1,4 +1,4 @@
-use std::{process::{Command}, path::PathBuf};
+use std::{process::{Command}, path::PathBuf, sync::atomic::AtomicBool};
 use color_print::{cprintln, cformat};
 use rayon::prelude::*;
 use std::path::Path;
@@ -10,21 +10,18 @@ pub struct Compiler<'a>
     name : &'static str,
     source_files : &'a Vec<String>,
     compile_flags : &'static str,
-    binary_name : &'static str
 }
 
 impl<'a> Compiler<'a>
 {
     pub fn new(name : &'static str, 
                source_files : &'a Vec<String>, 
-               compile_flags : &'static str,
-               binary_name : &'static str) -> Compiler<'a>
+               compile_flags : &'static str) -> Compiler<'a>
     {
         return Compiler {
             name,
             source_files,
             compile_flags,
-            binary_name
         };
     }
 }
@@ -48,8 +45,9 @@ pub fn is_c_source_file(file : &String) -> bool
     return file.ends_with(".c");
 }
 
-pub fn compile_to_object_files(compile_info : &Compiler) 
+pub fn compile_to_object_files(compile_info : &Compiler) -> bool
 {
+    let compilation_successful = AtomicBool::new(true);
     compile_info.source_files.into_par_iter().for_each(|file| {
         cprintln!("<green><bold>Compiling </bold>'{}'...</green>", file);
 
@@ -76,7 +74,10 @@ pub fn compile_to_object_files(compile_info : &Compiler)
             if Path::new(&out).exists() {
                 std::fs::remove_file(&out).expect("Failed to remove object file from build directory");
             }
+            compilation_successful.store(false, std::sync::atomic::Ordering::Relaxed);
+            return;
         }
-        return;
     });
+
+    return compilation_successful.load(std::sync::atomic::Ordering::Relaxed);
 }
