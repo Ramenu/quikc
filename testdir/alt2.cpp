@@ -1,5 +1,4 @@
-
 int g() {
-    return 1;
+    return 0;
 }
 
