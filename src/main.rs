@@ -9,13 +9,18 @@ mod linker;
 mod defaultbuild;
 mod build;
 
+const SOURCE_DIRECTORY : &str = "./testdir";
+
 fn main() 
 {
+    let build_config = Build::new();
     let mut source_files = Vec::new();
     let mut build_table = buildtable::BuildTable::new();
-    let build_config = Build::new();
 
-    walker::retrieve_source_files("./testdir", &mut source_files, build_config.get_compiler_name(), &mut build_table);
+    walker::retrieve_source_files(SOURCE_DIRECTORY, 
+                                  &mut source_files, 
+                                  &build_config.get_compiler_name(), 
+                                  &mut build_table);
 
     let compilation_successful = compiler::compile_to_object_files(&mut source_files, &build_config);
 
