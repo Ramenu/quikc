@@ -1,30 +1,10 @@
-use std::{process::{Command}, path::PathBuf, sync::atomic::AtomicBool};
+use std::{path::PathBuf, sync::atomic::AtomicBool};
 use color_print::{cprintln, cformat};
 use rayon::prelude::*;
 use std::path::Path;
 
-use crate::buildtable::{BUILD_TABLE_OBJECT_FILE_DIRECTORY};
+use crate::{buildtable::{BUILD_TABLE_OBJECT_FILE_DIRECTORY}, build::{Build}};
 
-pub struct Compiler<'a>
-{
-    name : &'static str,
-    source_files : &'a Vec<String>,
-    compile_flags : &'static str,
-}
-
-impl<'a> Compiler<'a>
-{
-    pub fn new(name : &'static str, 
-               source_files : &'a Vec<String>, 
-               compile_flags : &'static str) -> Compiler<'a>
-    {
-        return Compiler {
-            name,
-            source_files,
-            compile_flags,
-        };
-    }
-}
 
 #[inline]
 pub fn to_output_file(path : &mut PathBuf, directory : &str, ext : &str) -> String
@@ -45,25 +25,35 @@ pub fn is_c_source_file(file : &String) -> bool
     return file.ends_with(".c");
 }
 
-pub fn compile_to_object_files(compile_info : &Compiler) -> bool
+// dont support msvc at the moment
+#[inline]
+pub fn is_gcc_or_clang(compiler_name : &str) -> bool
+{
+    return match compiler_name {
+        "gcc"|"g++"|"clang"|"clang++" => true,
+        _ => false
+    };
+}
+
+pub fn compile_to_object_files(source_files : &Vec<String>,
+                               build_info : &Build) -> bool
 {
     let compilation_successful = AtomicBool::new(true);
-    compile_info.source_files.into_par_iter().for_each(|file| {
+    source_files.into_par_iter().for_each(|file| {
         cprintln!("<green><bold>Compiling </bold>'{}'...</green>", file);
 
         let mut out_file_path = PathBuf::from(file);
         let out = to_output_file(&mut out_file_path, BUILD_TABLE_OBJECT_FILE_DIRECTORY, "o");
 
-        let output = Command::new(compile_info.name)
-                                     .arg(&file)
-                                     .arg("-fdiagnostics-color")
-                                     .arg("-c")
-                                     .arg("-o")
-                                     .arg(&out)
-                                     .output()
-                                     .expect("Failed to execute process");
-
-
+        
+        let output = build_info.execute_compiler_with_build_info(file)
+                                       .arg(file)
+                                       .arg("-c")
+                                       .arg("-o")
+                                       .arg(&out)
+                                       .output()
+                                       .expect("Failed to execute process");
+        
         if !output.status.success() {
             let s = String::from_utf8_lossy(&output.stderr);
             eprintln!("{}\n{}", s, cformat!("<red><bold>error:</bold></red> Failed to compile '{}'\nTerminating compilation.", file));
