@@ -1,5 +1,4 @@
-use std::path::PathBuf;
-
+use build::Build;
 use color_print::cprintln;
 
 
@@ -7,26 +6,23 @@ mod compiler;
 mod walker;
 mod buildtable;
 mod linker;
+mod defaultbuild;
+mod build;
 
 fn main() 
 {
     let mut source_files = Vec::new();
-    let compiler_name = "g++";
-    let binary_name = "main";
-    let dir = "./testdir"; // directory to search
     let mut build_table = buildtable::BuildTable::new();
+    let build_config = Build::new();
 
-    walker::retrieve_source_files(dir, &mut source_files, compiler_name, &mut build_table);
+    walker::retrieve_source_files("./testdir", &mut source_files, build_config.get_compiler_name(), &mut build_table);
 
-    let compiler_info = compiler::Compiler::new(compiler_name, 
-                                                          &source_files, 
-                                                          "-std=c++17");
-    let compilation_successful = compiler::compile_to_object_files(&compiler_info);
+    let compilation_successful = compiler::compile_to_object_files(&mut source_files, &build_config);
 
     if compilation_successful {
-        let link_successful = linker::link_files(compiler_name, "", binary_name);
+        let link_successful = linker::link_files(&build_config);
         if link_successful {
-            cprintln!("<green><bold>Successfully built target {}</bold></green>", retrieve_file_name(binary_name));
+            cprintln!("<green><bold>Successfully built target {}</bold></green>", retrieve_file_name(build_config.get_package_name()));
         }
     }
 
