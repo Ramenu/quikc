@@ -1,19 +1,17 @@
-use std::{process::Command, fs, path::{Path, PathBuf}};
+use std::{fs, path::{PathBuf}};
 
 use color_print::{cformat, cprintln};
 
-use crate::buildtable::BUILD_TABLE_OBJECT_FILE_DIRECTORY;
+use crate::{buildtable::BUILD_TABLE_OBJECT_FILE_DIRECTORY, build::Build};
 
 
 
-pub fn link_files(compiler_name : &str,
-                  linker_args : &str,
-                  binary_name : &str) -> bool
+pub fn link_files(build_config : &Build) -> bool
 {
     let mut object_files = Vec::new();
     let dir = fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)
                           .expect("Failed to read from object file directory");
-    let binary_path = PathBuf::from(binary_name);
+    let binary_path = PathBuf::from(build_config.get_package_name());
     let binary_creation_time = binary_path.metadata()
                                                       .unwrap()
                                                       .created()
@@ -40,18 +38,20 @@ pub fn link_files(compiler_name : &str,
     }
 
     if need_to_relink {
-        cprintln!("<green><bold>Linking executable</bold> '{}'...</green>", binary_name);
-        let command = Command::new(compiler_name)
-                                            .args(object_files.iter())
-                                            //.arg(linker_args)
-                                            .arg("-o")
-                                            .arg(binary_name)
-                                            .output()
-                                            .expect("Failed to execute linker");
+        let binary_path_str = binary_path.to_str().unwrap();
+        cprintln!("<green><bold>Linking executable</bold> '{}'...</green>", binary_path_str);
+        let cmd = build_config.execute_linker_with_build_info()
+                                          .args(object_files.iter())
+                                          .arg("-o")
+                                          .arg(binary_path_str)
+                                          .output()
+                                          .expect("Failed to execute linker");
         
-        if !command.status.success() {
-            let err_output = String::from_utf8_lossy(&command.stderr);
-            eprintln!("{}\n{}", cformat!("<red><bold>error:</bold></red> Failed to link executable '{}'", binary_name), err_output);
+        if !cmd.status.success() {
+            let err_output = String::from_utf8_lossy(&cmd.stderr);
+            eprintln!("{}\n{}", 
+                      cformat!("<red><bold>error:</bold></red> Failed to link executable '{}'", binary_path_str), 
+                      err_output);
             return false;
         }
     }
