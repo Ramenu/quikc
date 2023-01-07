@@ -4,7 +4,16 @@ use color_print::{cformat, cprintln};
 
 use crate::{buildtable::BUILD_TABLE_OBJECT_FILE_DIRECTORY, build::Build};
 
-
+#[inline]
+pub fn use_default_linker_configuration(linker_args : &Option<Vec<String>>) -> bool
+{
+    if linker_args.is_some() {
+        if linker_args.as_ref().unwrap().len() > 0 {
+            return false;
+        }
+    }
+    return true;
+}
 
 pub fn link_files(build_config : &Build) -> bool
 {

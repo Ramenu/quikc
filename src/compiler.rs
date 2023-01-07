@@ -1,10 +1,11 @@
-use std::{path::PathBuf, sync::atomic::AtomicBool};
+use std::{path::PathBuf, sync::atomic::AtomicBool, process::Command, io::ErrorKind};
 use color_print::{cprintln, cformat};
 use rayon::prelude::*;
 use std::path::Path;
 
 use crate::{buildtable::{BUILD_TABLE_OBJECT_FILE_DIRECTORY}, build::{Build}};
 
+const INCLUDE_PATH : &str = "-I./include";
 
 #[inline]
 pub fn to_output_file(path : &mut PathBuf, directory : &str, ext : &str) -> String
@@ -35,6 +36,45 @@ pub fn is_gcc_or_clang(compiler_name : &str) -> bool
     };
 }
 
+#[inline]
+pub fn use_default_compiler_configuration(compiler_args : &Option<Vec<String>>) -> bool
+{
+    if compiler_args.is_some() {
+        if compiler_args.as_ref().unwrap().len() > 0 {
+            return false;
+        }
+    }
+    return true;
+}
+
+/// Selects a default compiler, should be called only if a compiler has not
+/// been specified in the 'build.toml' file. Available default compilers to
+/// choose from include: gcc, clang, g++, clang++
+pub fn select_default_compiler() -> Option<String>
+{
+    if match Command::new("gcc").spawn() {
+        Ok(_) => true,
+        Err(e) => if let ErrorKind::NotFound = e.kind() { false } else { true }
+    } { return Some("gcc".to_string()) }
+
+    if match Command::new("clang").spawn() {
+        Ok(_) => true,
+        Err(e) => if let ErrorKind::NotFound = e.kind() { false } else { true }
+    } { return Some("clang".to_string()) }
+
+    if match Command::new("g++").spawn() {
+        Ok(_) => true,
+        Err(e) => if let ErrorKind::NotFound = e.kind() { false } else { true }
+    } { return Some("g++".to_string()) }
+
+    if match Command::new("clang++").spawn() {
+        Ok(_) => true,
+        Err(e) => if let ErrorKind::NotFound = e.kind() { false } else { true }
+    } { return Some("clang++".to_string()) }
+
+    return None;
+}
+
 pub fn compile_to_object_files(source_files : &Vec<String>,
                                build_info : &Build) -> bool
 {
@@ -47,6 +87,7 @@ pub fn compile_to_object_files(source_files : &Vec<String>,
 
         
         let output = build_info.execute_compiler_with_build_info(file)
+                                       .arg(INCLUDE_PATH)
                                        .arg(file)
                                        .arg("-c")
                                        .arg("-o")
@@ -65,6 +106,7 @@ pub fn compile_to_object_files(source_files : &Vec<String>,
                 std::fs::remove_file(&out).expect("Failed to remove object file from build directory");
             }
             compilation_successful.store(false, std::sync::atomic::Ordering::Relaxed);
+
             return;
         }
     });
