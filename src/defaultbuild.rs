@@ -1,7 +1,7 @@
 
 // Default build configuration settings
 
-pub const GCC_COMPILER_NONEXCLUSIVE_WARNINGS : [&str; 26] = [
+pub const GCC_COMPILER_NONEXCLUSIVE_WARNINGS : [&str; 25] = [
     "-Wall",
     "-Wextra",
     "-Werror",
@@ -9,7 +9,6 @@ pub const GCC_COMPILER_NONEXCLUSIVE_WARNINGS : [&str; 26] = [
     "-Wimplicit-fallthrough",
     "-Wdouble-promotion",
     "-Wmissing-include-dirs",
-    "-Wmissing-declarations",
     "-Wformat=2",
     "-Wconversion",
     "-Wduplicated-branches",
