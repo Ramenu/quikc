@@ -5,6 +5,8 @@
 [compiler]
     compiler = "gcc"
     args = []
+    cstd = "c11"
+    cppstd = "c++20"
 
 [linker]
     args = []
