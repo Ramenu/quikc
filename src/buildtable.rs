@@ -33,11 +33,6 @@ impl BuildTable
 
     pub fn new() -> BuildTable
     {
-        // Create build table directory if it doesnt exist
-        if !Path::new(BUILD_TABLE_DIRECTORY).is_dir() {
-            std::fs::create_dir(&BUILD_TABLE_DIRECTORY).expect("Failed to create directory");
-        }
-
         // Create build preprocessor directory
         if !Path::new(BUILD_TABLE_PREPROCESSOR_DIRECTORY).is_dir() {
             std::fs::create_dir(BUILD_TABLE_PREPROCESSOR_DIRECTORY).expect("Failed to create build preprocessor directory");
