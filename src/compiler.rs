@@ -50,29 +50,31 @@ pub fn use_default_compiler_configuration(compiler_args : &Option<Vec<String>>) 
 /// Selects a default compiler, should be called only if a compiler has not
 /// been specified in the 'build.toml' file. Available default compilers to
 /// choose from include: gcc, clang, g++, clang++
-pub fn select_default_compiler() -> Option<String>
+pub fn select_default_compiler() -> &'static str
 {
-    if match Command::new("gcc").spawn() {
+    if match Command::new("gcc").output() {
         Ok(_) => true,
         Err(e) => if let ErrorKind::NotFound = e.kind() { false } else { true }
-    } { return Some("gcc".to_string()) }
+    } { return "gcc" }
 
-    if match Command::new("clang").spawn() {
+    if match Command::new("clang").output() {
         Ok(_) => true,
         Err(e) => if let ErrorKind::NotFound = e.kind() { false } else { true }
-    } { return Some("clang".to_string()) }
+    } { return "clang" }
 
-    if match Command::new("g++").spawn() {
+    if match Command::new("g++").output() {
         Ok(_) => true,
         Err(e) => if let ErrorKind::NotFound = e.kind() { false } else { true }
-    } { return Some("g++".to_string()) }
+    } { return "g++" }
 
-    if match Command::new("clang++").spawn() {
+    if match Command::new("clang++").output() {
         Ok(_) => true,
         Err(e) => if let ErrorKind::NotFound = e.kind() { false } else { true }
-    } { return Some("clang++".to_string()) }
+    } { return "clang++" }
 
-    return None;
+    eprintln!("{}", cformat!("<bold><red>error</red>:</bold> Could not find a default compiler to use.
+                            Please specify your own in the 'build.toml' file"));
+    std::process::exit(1);
 }
 
 pub fn compile_to_object_files(source_files : &Vec<String>,
