@@ -9,7 +9,7 @@ mod linker;
 mod defaultbuild;
 mod build;
 
-const SOURCE_DIRECTORY : &str = "./testdir";
+const SOURCE_DIRECTORY : &str = "./src";
 
 fn main() 
 {
@@ -26,8 +26,14 @@ fn main()
 
     if compilation_successful {
         let link_successful = linker::link_files(&build_config);
+        let build_type = match build_config.is_debug_build() {
+            true => "debug",
+            false => "release"
+        };
         if link_successful {
-            cprintln!("<green><bold>Successfully built target {}</bold></green>", retrieve_file_name(build_config.get_package_name()));
+            cprintln!("<green><bold>Successfully built target {} [{} build]</bold></green>", 
+                      retrieve_file_name(build_config.get_package_name()),
+                      build_type);
         }
     }
 
