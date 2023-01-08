@@ -49,7 +49,7 @@ pub const GCC_COMPILER_CPP_EXCLUSIVE_WARNINGS : [&str; 13] = [
     "-Wsuggest-final-methods",
     "-Wuseless-cast",
     "-Weffc++",
-    "-Wvirtual-inheritance"
+    "-Wvirtual-inheritance",
 ];
 
 pub const CLANG_COMPILER_NONEXCLUSIVE_WARNINGS : [&str; 51] = [
@@ -140,9 +140,10 @@ pub const CLANG_COMPILER_CPP_WARNINGS : [&str; 20] = [
     "-Wctad",
 ];
 
-pub const GCC_COMPILER_CPP_DIALECT_OPTIONS : [&str; 2] = [
+pub const GCC_COMPILER_CPP_DIALECT_OPTIONS : [&str; 3] = [
     "-fno-exceptions",
-    "-fimplicit-constexpr"
+    "-fimplicit-constexpr",
+    "-fno-rtti"
 ];
 
 // Static analysis slows down compilation time, but can be disabled
@@ -172,9 +173,5 @@ pub const GCC_PROFILING_OPTIONS : [&str; 1] = [
 // Only used for release builds
 pub const GCC_AND_CLANG_LINKER_OPTIONS : [&str; 2] = [
     "-flto",
-    "-s"
-];
-
-pub const GCC_AND_CLANG_CPP_LINKER_OPTIONS : [&str; 1] = [
-    "-fno-rtti"
+    "-s",
 ];
