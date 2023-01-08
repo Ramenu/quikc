@@ -1,26 +1,25 @@
 [package]
     name = "main"
-    debug_build = true
+    debug_build = false
 
 [compiler]
     compiler = "gcc"
-    args = []
-    cstd = "c11"
-    cppstd = "c++20"
-
+#    cstd = "c11"
+#    cppstd = "c++20"
+#
 [linker]
-    args = []
-    libraries = []
-
-# Note that if custom compiler/linker arguments are used, these
-# settings will be ignored
-[misc]
-    # 1 = No optimizations
-    # 2 = With optimizations (recommended for non debug builds)
-    # 3 = Extreme performance optimizations (non-standard, may break program and won't produce a cross-platform binary)
-    optimization_level = 1
-
-    # Enabling static analysis may slow down compilation time significantly
-    # if using clang, download clang-tidy to use
-    static_analysis_enabled = false
-
+#    args = []
+#
+## Note that if custom compiler/linker arguments are used, these
+## settings will be ignored
+#[misc]
+#    # 1 = No optimizations
+#    # 2 = With optimizations (recommended for non debug builds)
+#    # 3 = Extreme performance optimizations (non-standard, may break program and won't produce a cross-platform binary)
+#    optimization_level = 1
+#
+#    # Enabling static analysis may slow down compilation time significantly
+#    # if using clang, download clang-tidy to use
+#    static_analysis_enabled = false
+#
+#
