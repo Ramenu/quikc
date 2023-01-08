@@ -5,7 +5,7 @@ use std::path::Path;
 
 use crate::{buildtable::{BUILD_TABLE_OBJECT_FILE_DIRECTORY}, build::{Build}};
 
-const INCLUDE_PATH : &str = "-I./include";
+pub const INCLUDE_PATH : &str = "-I./include";
 
 #[inline]
 pub fn to_output_file(path : &mut PathBuf, directory : &str, ext : &str) -> String
@@ -40,7 +40,7 @@ pub fn is_gcc_or_clang(compiler_name : &str) -> bool
 pub fn use_default_compiler_configuration(compiler_args : &Option<Vec<String>>) -> bool
 {
     if compiler_args.is_some() {
-        if compiler_args.as_ref().unwrap().len() > 0 {
+        if !compiler_args.as_ref().unwrap().is_empty() {
             return false;
         }
     }

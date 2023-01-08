@@ -1,13 +1,9 @@
-use std::{path::{PathBuf, Path}, fs::{File, self}, time::UNIX_EPOCH, process::{Command, Output}, io};
+use std::{path::{PathBuf, Path}, fs::{File, self}, time::UNIX_EPOCH, process::{Command}};
 
-
-use sha2::{Sha256, Digest};
-
-use crate::{compiler};
+use crate::{compiler::{self, INCLUDE_PATH}};
 
 
 pub const BUILD_TABLE_DIRECTORY : &str = "./buildinfo";
-pub const BUILD_TABLE_PREPROCESSOR_DIRECTORY : &str = "./buildinfo/cpp";
 pub const BUILD_TABLE_OBJECT_FILE_DIRECTORY : &str = "./buildinfo/obj";
 pub const BUILD_TABLE_FILE : &str = "./buildinfo/table.toml";
 
@@ -16,27 +12,12 @@ pub struct BuildTable
     table : toml::value::Table
 }
 
-#[inline]
-fn run_preprocessor_on_file(compiler_name : &str, source_file : &str, out_file : &str) -> Output
-{
-    return Command::new(compiler_name)
-                   .arg("-E")
-                   .arg(source_file)
-                   .arg("-o")
-                   .arg(out_file)
-                   .output()
-                   .expect("Failed to execute preprocessor on source file");
-}
 
 impl BuildTable
 {
 
     pub fn new() -> BuildTable
     {
-        // Create build preprocessor directory
-        if !Path::new(BUILD_TABLE_PREPROCESSOR_DIRECTORY).is_dir() {
-            std::fs::create_dir(BUILD_TABLE_PREPROCESSOR_DIRECTORY).expect("Failed to create build preprocessor directory");
-        }
 
         // Create build object file directory
         if !Path::new(BUILD_TABLE_OBJECT_FILE_DIRECTORY).is_dir() {
@@ -56,13 +37,76 @@ impl BuildTable
         };
     }
 
-
-    pub fn needs_to_be_recompiled(&mut self, 
-                                       source_file_path : &mut PathBuf, 
-                                       compiler_name : &str) -> bool
+    fn get_file_dependencies(&self,
+                             compiler_name : &str, 
+                             source_file_name : &String) -> Vec<String>
     {
-        // Elapsed time since the source file was edited in the table
+        let cmd_output = &Command::new(compiler_name)
+                                            .arg(INCLUDE_PATH)
+                                            .arg("-MM")
+                                            .arg(source_file_name)
+                                            .output()
+                                            .expect("Failed to retrieve dependencies")
+                                            .stdout;
+
+        let dependencies_str_tmp = String::from_utf8_lossy(&cmd_output);
+        
+        let dependencies = move || {
+            let mut count = 0;
+            for (i, c) in dependencies_str_tmp.chars().enumerate() {
+                if c == ' ' {
+                    count += 1;
+                }
+                if count == 2 {
+                    return dependencies_str_tmp[i + 1..].split_whitespace()
+                                                        .map(|s| s.to_string()).collect::<Vec<String>>();
+                }
+            }
+            return Vec::new();
+        };
+
+        return dependencies();
+    }
+
+    pub fn needs_to_be_recompiled(&mut self,
+                                  source_file_path : &mut PathBuf,
+                                  compiler_name : &str) -> bool
+    {
         let source_file_name = source_file_path.to_str().unwrap().to_string();
+
+        // Before checking for dependencies, check if the source file has changed first to prevent
+        // unnecessary work. If it has, then the source file has to be recompiled
+        if !self.file_modified_since_last_build(source_file_path, 
+                                                &source_file_name,
+                                                false) {
+
+            // source file hasnt changed, so check the dependencies to see if any of them changed,
+            // if so then we need to recompile
+            let dependencies = self.get_file_dependencies(compiler_name, &source_file_name);
+
+            for dependency in dependencies {
+                // sometimes the compiler shows '\' for line breaks, so we need to ignore those
+                if dependency != "\\" {
+                    let mut dependency_path = PathBuf::from(&dependency);
+                    if self.file_modified_since_last_build(&mut dependency_path, 
+                                                            &dependency, 
+                                                            true) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+
+        }
+        return true;
+
+    }
+
+    fn file_modified_since_last_build(&mut self, 
+                                       source_file_path : &mut PathBuf, 
+                                       source_file_name : &String,
+                                       is_header_file : bool) -> bool
+    {
 
         // retrieve source file's metadata
         let source_metadata = source_file_path.metadata().expect("Failed to retrieve metadata from file");
@@ -73,62 +117,29 @@ impl BuildTable
         // check if value exists in the table, if so, compare the times,
         // if they are the same, then the source file has not been modified,
         // so recompilation is not necessary. Otherwise, it is
-        if self.table.contains_key(&source_file_name) {
-            let old_value = self.table.get(&source_file_name).unwrap().as_integer().unwrap();
+        if self.table.contains_key(source_file_name) {
+
+            let old_value = self.table.get(source_file_name).unwrap().as_integer().unwrap();
             if old_value != time {
-                self.table.insert(source_file_name, toml::Value::Integer(time));
+                self.table.insert(source_file_name.to_string(), toml::Value::Integer(time));
                 return true;
             }
-
-            let object_file = compiler::to_output_file(source_file_path, BUILD_TABLE_OBJECT_FILE_DIRECTORY, "o");
             
-            // If the object file does exist, compilation was most likely successful, if not
-            // then re-compilation is necessary
-            if Path::new(&object_file).exists() {
-
-                // Last thing: run the preprocessor on the file to check if any of the
-                // headers changed. If any of them did, then recompilation is necessary.
-                // This is avoided and only done for the last phase because it is not as
-                // efficient as checking the modification time.
-                let build_preprocessor_file = compiler::to_output_file(source_file_path, BUILD_TABLE_PREPROCESSOR_DIRECTORY, "i");
-
-                // If the preprocessor build file does not exist, then recompilation is necessary
-                if !Path::new(&build_preprocessor_file).exists() {
-                    run_preprocessor_on_file(compiler_name, &source_file_name, &build_preprocessor_file);
-                    return true;
+            // only check for object file if the source isnt a header
+            if !is_header_file {
+                let object_file = compiler::to_output_file(source_file_path, BUILD_TABLE_OBJECT_FILE_DIRECTORY, "o");
+                
+                // If the object file does exist, compilation was most likely successful, if not
+                // then re-compilation is necessary
+                if Path::new(&object_file).exists() {
+                    return false;
                 }
-
-                // If the preprocessor build file does exist, then create a preprocessed temporary 
-                // of this file and compare their hashes
-                let source_preprocessor_file = compiler::to_output_file(source_file_path, BUILD_TABLE_PREPROCESSOR_DIRECTORY, "ii");
-                run_preprocessor_on_file(compiler_name, &source_file_name, &source_preprocessor_file);
-
-                /* insert error handling for checking if preprocessor output returned no errors */
-
-                let mut cpp_file_1 = File::open(&build_preprocessor_file).expect("Failed to open build preprocessor file");
-                let mut cpp_file_2 = File::open(&source_preprocessor_file).expect("Failed to open source preprocessor file");
-
-                let mut sha_1 = Sha256::new();
-                let mut sha_2 = Sha256::new();
-                io::copy(&mut cpp_file_1, &mut sha_1).expect("Failed to copy from build preprocessor file");
-                io::copy(&mut cpp_file_2, &mut sha_2).expect("Failed to copy from source preprocessor file");
-
-                let hash_1 = sha_1.finalize();
-                let hash_2 = sha_2.finalize();
-
-                if hash_1 != hash_2 {
-                    let original = &source_preprocessor_file[..source_preprocessor_file.len() - 1];
-                    fs::rename(&source_preprocessor_file, original).expect("Failed to rename file");
-                    return true;
-                }
-                else {
-                    fs::remove_file(&source_preprocessor_file).expect("Failed to delete source preprocessor file");
-                }
-                return false;
+                return true;
             }
+            return false;
         }
 
-        self.table.insert(source_file_name, toml::Value::Integer(time));
+        self.table.insert(source_file_name.to_string(), toml::Value::Integer(time));
         return true;
     }
 

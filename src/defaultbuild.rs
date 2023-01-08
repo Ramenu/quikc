@@ -52,7 +52,7 @@ pub const GCC_COMPILER_CPP_EXCLUSIVE_WARNINGS : [&str; 13] = [
     "-Wvirtual-inheritance",
 ];
 
-pub const CLANG_COMPILER_NONEXCLUSIVE_WARNINGS : [&str; 51] = [
+pub const CLANG_COMPILER_NONEXCLUSIVE_WARNINGS : [&str; 49] = [
     "-Werror",
     "-Wpedantic",
     "-Wall",
@@ -79,7 +79,6 @@ pub const CLANG_COMPILER_NONEXCLUSIVE_WARNINGS : [&str; 51] = [
     "-Wmicrosoft",
     "-Wnarrowing",
     "-Wover-aligned",
-    "-Wpadded",
     "-Wpointer-arith",
     "-Wpoison-system-directories",
     "-Wretained-language-linkage",
@@ -100,7 +99,6 @@ pub const CLANG_COMPILER_NONEXCLUSIVE_WARNINGS : [&str; 51] = [
     "-Wgnu",
     "-Wgcc-compat",
     "-Wimplicit-float-conversion",
-    "-Winvalid-utf8",
     "-Wmisleading-indentation",
     "-Wmismatched-tags",
     "-Wmissing-braces",
@@ -117,14 +115,13 @@ pub const GCC_AND_CLANG_CPP_DIALECT_OPTIONS : [&str; 1] = [
     "-fstrict-enums"
 ];
 
-pub const CLANG_COMPILER_CPP_WARNINGS : [&str; 20] = [
+pub const CLANG_COMPILER_CPP_WARNINGS : [&str; 18] = [
     "-Wweak-vtables", 
     "-Wdtor-name",
     "-Wsuper-class-method-mismatch",
     "-Wsuggest-override",
     "-Wsuggest-destructor-override",
     "-Woverloaded-virtual",
-    "-Wglobal-constructors",
     "-Wself-assign-overloaded",
     "-Wself-move",
     "-Weffc++",
@@ -136,8 +133,7 @@ pub const CLANG_COMPILER_CPP_WARNINGS : [&str; 20] = [
     "-Wsuggest-destructor-override",
     "-Wsuggest-override",
     "-Wsuper-class-method-mismatch",
-    "-Winconsistent-missing-destructor-override",
-    "-Wctad",
+    "-Winconsistent-missing-destructor-override"
 ];
 
 pub const GCC_COMPILER_CPP_DIALECT_OPTIONS : [&str; 3] = [

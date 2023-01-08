@@ -21,25 +21,34 @@ fn main()
                                   &mut source_files, 
                                   &build_config.get_compiler_name(), 
                                   &mut build_table);
+    if !source_files.is_empty() {
+        let compilation_successful = compiler::compile_to_object_files(&mut source_files, &build_config);
 
-    let compilation_successful = compiler::compile_to_object_files(&mut source_files, &build_config);
-
-    if compilation_successful {
-        let link_successful = linker::link_files(&build_config);
-        let build_type = match build_config.is_debug_build() {
-            true => "debug",
-            false => "release"
-        };
-        if link_successful {
-            cprintln!("<green><bold>Successfully built target {} [{} build]</bold></green>", 
-                      retrieve_file_name(build_config.get_package_name()),
-                      build_type);
+        if compilation_successful {
+            let link_successful = linker::link_files(&build_config);
+            if link_successful {
+                success(&build_config);
+            }
         }
+    }
+    else {
+        success(&build_config);
     }
 
     build_table.write();
 }
 
+fn success(build_config : &Build)
+{
+    let build_type = match build_config.is_debug_build() {
+        true => "debug",
+        false => "release"
+    };
+
+    cprintln!("<green><bold>Successfully built target {} [{} build]</bold></green>", 
+            retrieve_file_name(build_config.get_package_name()),
+            build_type);
+}
 
 fn retrieve_file_name(s : &str) -> String
 {

@@ -1,5 +1,5 @@
-use std::{fs::{self}, process::Command, path::Path, io};
-use color_print::{cprintln, cformat};
+use std::{fs::{self}, process::Command, path::Path};
+use color_print::{cprintln};
 use serde_derive::Deserialize;
 
 use crate::{defaultbuild::{GCC_COMPILER_NONEXCLUSIVE_WARNINGS, GCC_COMPILER_C_EXCLUSIVE_WARNINGS, GCC_COMPILER_CPP_DIALECT_OPTIONS, GCC_COMPILER_CPP_EXCLUSIVE_WARNINGS, GCC_STATIC_ANALYSIS_OPTIONS, GCC_AND_CLANG_DIALECT_OPTIONS, CLANG_COMPILER_NONEXCLUSIVE_WARNINGS, CLANG_COMPILER_CPP_WARNINGS, GCC_AND_CLANG_OPTIMIZATION_OPTIONS, GCC_AND_CLANG_ENHANCED_OPTIMIZATION_OPTIONS, GCC_AND_CLANG_LINKER_OPTIONS, GCC_AND_CLANG_CPP_DIALECT_OPTIONS}, compiler::{self, use_default_compiler_configuration, select_default_compiler}, buildtable::{BUILD_TABLE_OBJECT_FILE_DIRECTORY, BUILD_TABLE_DIRECTORY}, linker};
@@ -151,31 +151,41 @@ impl Build
             cmd.arg("-g");
         }
 
+        let is_c_source_file = compiler::is_c_source_file(file);
+
+        if !is_c_source_file {
+            // specify c++ standard if given
+            if self.compiler.cppstd.is_some() {
+                if cfg!(debug_assertions) {
+                    println!("Custom standard specified in 'Build.toml', using '{}' as standard", self.compiler.cppstd.as_ref().unwrap());
+                }
+                cmd.arg(format!("-std={}", self.compiler.cppstd.as_ref().unwrap()));
+            }
+            else {
+                if cfg!(debug_assertions) {
+                    println!("No custom standard specified in 'Build.toml', using 'c++20' as default");
+                }
+                cmd.arg("-std=c++20"); // default to c++20
+            }
+        }
+        else {
+            // specify c standard if given
+            if self.compiler.cstd.is_some() {
+                cmd.arg(format!("-std={}", self.compiler.cstd.as_ref().unwrap()));
+            }
+            else {
+                cmd.arg("-std=c17"); // default to c17
+            }
+        }
+
         // If the default configuration variable is set to true, use the default arguments
         // (note this doesnt support MSVC)
         if use_default_compiler_configuration(compiler_args) {
-
-            let is_c_source_file = compiler::is_c_source_file(file);
-
+            if cfg!(debug_assertions) {
+                println!("Using default compiler configuration");
+            }
             if !is_c_source_file {
                 cmd.args(GCC_AND_CLANG_CPP_DIALECT_OPTIONS);
-
-                // specify c++ standard if given
-                if self.compiler.cppstd.is_some() {
-                    cmd.arg(format!("-std={}", self.compiler.cppstd.as_ref().unwrap()));
-                }
-                else {
-                    cmd.arg("-std=c++20"); // default to c++20
-                }
-            }
-            else {
-                // specify c standard if given
-                if self.compiler.cstd.is_some() {
-                    cmd.arg(format!("-std={}", self.compiler.cstd.as_ref().unwrap()));
-                }
-                else {
-                    cmd.arg("-std=c17"); // default to c17
-                }
             }
 
             // Default configuration only supported on gcc and clang
@@ -236,9 +246,13 @@ impl Build
         }
 
         // If default configuration is not set, then use the user's custom flags
-        if !compiler_args.as_ref().unwrap().is_empty() {
-            cmd.args(compiler_args.as_ref().unwrap().iter());
+        if cfg!(debug_assertions) {
+            println!("Using custom arguments on '{}' with these arguments:", file);
+            for arg in compiler_args.as_ref().unwrap() {
+                println!("'{}'", arg);
+            }
         }
+        cmd.args(compiler_args.as_ref().unwrap().iter());
         return cmd;
 
     }
