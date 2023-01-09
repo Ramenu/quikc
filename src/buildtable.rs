@@ -17,7 +17,7 @@ pub struct BuildTable
 #[inline]
 fn get_duration_since_modified(metadata : &Metadata) -> i64
 {
-    return (metadata.modified().unwrap().duration_since(UNIX_EPOCH).unwrap().as_secs() / 6000) as i64;
+    return (metadata.modified().unwrap().duration_since(UNIX_EPOCH).unwrap().as_secs() / 2) as i64;
 }
 
 impl BuildTable
@@ -78,7 +78,8 @@ impl BuildTable
 
     pub fn needs_to_be_recompiled(&mut self,
                                   source_file_path : &mut PathBuf,
-                                  compiler_name : &str) -> bool
+                                  compiler_name : &str,
+                                  old_table : &toml::value::Table) -> bool
     {
         let recompile = AtomicBool::new(false);
         let source_file_name = source_file_path.to_str().unwrap().to_string();
@@ -92,7 +93,8 @@ impl BuildTable
         if self.file_modified_since_last_build(source_file_path, 
                                                &source_file_name, 
                                                false, 
-                                               source_modified_duration) {
+                                               source_modified_duration,
+                                               old_table) {
             recompile.store(true, Ordering::Relaxed);
             self.table.insert(source_file_name, time);
         }
@@ -109,14 +111,15 @@ impl BuildTable
                 if self.file_modified_since_last_build(&mut dependency_path, 
                                                         dependency, 
                                                         true,
-                                                        duration) {
+                                                        duration,
+                                                             old_table) {
                     recompile.store(true, Ordering::Relaxed);
                     let mut table = table.lock().unwrap();
                     table.insert(dependency.clone(), toml::Value::Integer(duration));
                 }
             }
         });
-        self.table = table.lock().unwrap().clone();
+        self.table = table.lock().unwrap().clone(); //keep it commented just so if somethings not working uncomment
         return recompile.load(Ordering::Relaxed);
 
     }
@@ -125,16 +128,17 @@ impl BuildTable
                                        source_file_path : &mut PathBuf, 
                                        source_file_name : &String,
                                        is_header_file : bool,
-                                       time : i64) -> bool
+                                       time : i64,
+                                       old_table : &toml::value::Table) -> bool
     {
 
         // check if value exists in the table, if so, compare the times,
         // if they are the same, then the source file has not been modified,
         // so recompilation is not necessary. Otherwise, it is
-        if self.table.contains_key(source_file_name) {
-            let old_value = self.table.get(source_file_name).unwrap().as_integer().unwrap();
+        if old_table.contains_key(source_file_name) {
+            let old_value = old_table.get(source_file_name).unwrap().as_integer().unwrap();
 
-            if old_value < time {
+            if old_value != time {
                 return true;
             }
             
@@ -160,5 +164,11 @@ impl BuildTable
     pub fn write(&self)
     {
         fs::write(BUILD_TABLE_FILE, toml::to_string(&self.table).unwrap()).expect("Failed to write to file");
+    }
+
+    #[inline]
+    pub fn get_table(&self) -> &toml::value::Table
+    {
+        return &self.table;
     }
 }

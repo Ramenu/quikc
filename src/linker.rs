@@ -29,9 +29,9 @@ pub fn link_files(build_config : &Build) -> bool
     if binary_path.exists() {
         need_to_relink = false;
         let binary_creation_time = binary_path.metadata()
-                                                        .unwrap()
-                                                        .created()
-                                                        .unwrap();
+                                                          .unwrap()
+                                                          .created()
+                                                          .unwrap();
         
         for object_file in dir {
             let object_file_path = object_file.unwrap().path();
@@ -64,11 +64,11 @@ pub fn link_files(build_config : &Build) -> bool
         let binary_path_str = binary_path.to_str().unwrap();
         cprintln!("<green><bold>Linking executable</bold> '{}'...</green>", binary_path_str);
         let cmd = build_config.execute_linker_with_build_info()
-                                          .args(object_files.iter())
-                                          .arg("-o")
-                                          .arg(binary_path_str)
-                                          .output()
-                                          .expect("Failed to execute linker");
+                                      .args(object_files.iter())
+                                      .arg("-o")
+                                      .arg(binary_path_str)
+                                      .output()
+                                      .expect("Failed to execute linker");
         
         if !cmd.status.success() {
             let err_output = String::from_utf8_lossy(&cmd.stderr);

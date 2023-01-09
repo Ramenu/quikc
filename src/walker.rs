@@ -11,6 +11,7 @@ pub fn retrieve_source_files(dir: &str,
                              compiler_name : &str, 
                              build_table : &mut BuildTable) 
 {
+    let old_table = build_table.get_table().clone();
     let mut has_source_file = false;
     let paths = fs::read_dir(dir).expect("Failed to read from directory");
     
@@ -20,7 +21,7 @@ pub fn retrieve_source_files(dir: &str,
         let path_str = retrieved_path.to_str().unwrap().to_string();
         if compiler::is_cpp_source_file(&path_str) || compiler::is_c_source_file(&path_str) {
             has_source_file = true;
-            if build_table.needs_to_be_recompiled(&mut retrieved_path, compiler_name) {
+            if build_table.needs_to_be_recompiled(&mut retrieved_path, compiler_name, &old_table) {
                 source_files.push(path_str);
             }
         }
