@@ -1,0 +1,53 @@
+#!/bin/python
+
+from os.path import isfile, isdir
+from os import mkdir
+from sys import argv
+
+class Color:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+if len(argv) < 2:
+    print(f"{Color.BOLD}{Color.FAIL}error{Color.ENDC}{Color.BOLD}:{Color.ENDC} package name not specified")
+    exit(1)
+
+packageName = argv[1]
+
+BUILD_TOML_PATH = "./Build.toml"
+BUILD_INFO_DIR = "./buildinfo"
+BUILD_INFO_OBJ_DIR = f"{BUILD_INFO_DIR}/obj"
+BUILD_INFO_TABLE_TOML = f"{BUILD_INFO_DIR}/table.toml"
+
+BUILD_TOML_STR = f"\
+[package]\n\
+    name = \"{packageName}\"\n\
+    debug_build = true\n\
+    \n\
+[compiler]\n\
+    compiler = \"gcc\""
+
+
+try:
+    if not isfile(BUILD_TOML_PATH):
+        with open(BUILD_TOML_PATH, "w") as f:
+            f.write(BUILD_TOML_STR)
+
+    if not isdir(BUILD_INFO_DIR):
+        mkdir(BUILD_INFO_DIR)
+
+    if not isdir(BUILD_INFO_OBJ_DIR):
+        mkdir(BUILD_INFO_OBJ_DIR)
+except Exception as e:
+    print(f"{Color.BOLD}{Color.FAIL}error{Color.ENDC}{Color.BOLD}:{Color.ENDC} {e}")
+    exit(1)
+
+print(f"{Color.OKGREEN}{Color.BOLD}Successfully created package '{packageName}'. You're all ready to go! :)")
+
+
