@@ -1,4 +1,4 @@
-use std::{path::{PathBuf, Path}, fs::{File, self}, time::UNIX_EPOCH, process::{Command}};
+use std::{path::{PathBuf, Path}, fs::{File, self, Metadata}, time::UNIX_EPOCH, process::{Command}};
 
 use crate::{compiler::{self, INCLUDE_PATH}};
 
@@ -12,6 +12,11 @@ pub struct BuildTable
     table : toml::value::Table
 }
 
+#[inline]
+fn get_duration_since_modified(metadata : &Metadata) -> i64
+{
+    return (metadata.modified().unwrap().duration_since(UNIX_EPOCH).unwrap().as_secs() / 6000) as i64;
+}
 
 impl BuildTable
 {
@@ -59,7 +64,8 @@ impl BuildTable
                 }
                 if count == 2 {
                     return dependencies_str_tmp[i + 1..].split_whitespace()
-                                                        .map(|s| s.to_string()).collect::<Vec<String>>();
+                                                        .map(|s| s.to_string())
+                                                        .collect::<Vec<String>>();
                 }
             }
             return Vec::new();
@@ -72,56 +78,58 @@ impl BuildTable
                                   source_file_path : &mut PathBuf,
                                   compiler_name : &str) -> bool
     {
+        let mut recompile = false;
         let source_file_name = source_file_path.to_str().unwrap().to_string();
 
-        // Before checking for dependencies, check if the source file has changed first to prevent
-        // unnecessary work. If it has, then the source file has to be recompiled
-        if !self.file_modified_since_last_build(source_file_path, 
-                                                &source_file_name,
-                                                false) {
+        let dependencies = self.get_file_dependencies(compiler_name, &source_file_name);
 
-            // source file hasnt changed, so check the dependencies to see if any of them changed,
-            // if so then we need to recompile
-            let dependencies = self.get_file_dependencies(compiler_name, &source_file_name);
-
-            for dependency in dependencies {
-                // sometimes the compiler shows '\' for line breaks, so we need to ignore those
-                if dependency != "\\" {
-                    let mut dependency_path = PathBuf::from(&dependency);
-                    if self.file_modified_since_last_build(&mut dependency_path, 
-                                                            &dependency, 
-                                                            true) {
-                        return true;
-                    }
-                }
-            }
-            return false;
-
+        // check if source file has changed (note we still need to check if any dependencies have changed to update)
+        // the build table
+        let source_modified_duration = get_duration_since_modified(&source_file_path.metadata().unwrap());
+        if self.file_modified_since_last_build(source_file_path, 
+                                               &source_file_name, 
+                                               false, 
+                                               source_modified_duration) {
+            self.table.insert(source_file_name, toml::Value::Integer(source_modified_duration));
+            recompile = true;
         }
-        return true;
+        let mut time : toml::Value = toml::Value::Integer(source_modified_duration);
+
+        // check if any dependencies have changed for the source file, if 1 has changed, we can
+        // update all of their times
+        for dependency in dependencies {
+            // sometimes the compiler shows '\' for line breaks, so we need to ignore those
+            if dependency != "\\" {
+                let mut dependency_path = PathBuf::from(&dependency);
+                let source_metadata = dependency_path.metadata().expect("Failed to retrieve metadata from file");
+                let duration = get_duration_since_modified(&source_metadata);
+                if self.file_modified_since_last_build(&mut dependency_path, 
+                                                        &dependency, 
+                                                        true,
+                                                        duration) {
+                    self.table.insert(dependency, time.clone());
+                }
+                time = toml::Value::Integer(duration);
+            }
+        }
+        return recompile;
 
     }
 
     fn file_modified_since_last_build(&mut self, 
                                        source_file_path : &mut PathBuf, 
                                        source_file_name : &String,
-                                       is_header_file : bool) -> bool
+                                       is_header_file : bool,
+                                       time : i64) -> bool
     {
-
-        // retrieve source file's metadata
-        let source_metadata = source_file_path.metadata().expect("Failed to retrieve metadata from file");
-
-        // retrieve the time that has been elapsed since it was last modified (in seconds)
-        let time = (source_metadata.modified().unwrap().duration_since(UNIX_EPOCH).unwrap().as_secs() / 6000) as i64;
 
         // check if value exists in the table, if so, compare the times,
         // if they are the same, then the source file has not been modified,
         // so recompilation is not necessary. Otherwise, it is
         if self.table.contains_key(source_file_name) {
-
             let old_value = self.table.get(source_file_name).unwrap().as_integer().unwrap();
-            if old_value != time {
-                self.table.insert(source_file_name.to_string(), toml::Value::Integer(time));
+
+            if old_value < time {
                 return true;
             }
             
@@ -139,7 +147,6 @@ impl BuildTable
             return false;
         }
 
-        self.table.insert(source_file_name.to_string(), toml::Value::Integer(time));
         return true;
     }
 

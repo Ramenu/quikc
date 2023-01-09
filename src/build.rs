@@ -74,6 +74,9 @@ impl Build
                                                 .expect("Failed to read from cached build configuration file");
             cached_toml = Some(toml::from_str(&cached_file_contents).expect("Failed to parse cached build configuration file"));
         }
+        else {
+
+        }
         let mut config = Build::default();
 
         // If a default compiler is not provided, select one automatically
@@ -106,9 +109,12 @@ impl Build
                     fs::remove_dir_all(BUILD_TABLE_OBJECT_FILE_DIRECTORY).expect("Failed to remove build table object file directory");
                 }
             }
+            else {
+                fs::copy(BUILD_CONFIG_FILE, BUILD_CONFIG_CACHE_FILE).expect("Failed to cache build configuration file");
+            }
         }
         else {
-            fs::copy(BUILD_CONFIG_FILE, BUILD_CONFIG_CACHE_FILE).expect("Failed to copy contents from build config file to cached config");
+            fs::copy(BUILD_CONFIG_FILE, BUILD_CONFIG_CACHE_FILE).expect("Failed to cache build configuration file");
         }
 
         config.misc = match &toml_config.misc {
@@ -130,13 +136,6 @@ impl Build
         config.package.name = toml_config.package.name;
         config.package.debug_build = toml_config.package.debug_build;
 
-        if !Path::new(BUILD_CONFIG_CACHE_FILE).is_file() {
-            fs::copy(BUILD_CONFIG_FILE, BUILD_CONFIG_CACHE_FILE).expect("Failed to cache build configuration file");
-            return config;
-        }
-
-        fs::copy(BUILD_CONFIG_FILE, BUILD_CONFIG_CACHE_FILE).expect("Failed to cache build configuration file");
-
         return config;
     }
 
@@ -156,15 +155,9 @@ impl Build
         if !is_c_source_file {
             // specify c++ standard if given
             if self.compiler.cppstd.is_some() {
-                if cfg!(debug_assertions) {
-                    println!("Custom standard specified in 'Build.toml', using '{}' as standard", self.compiler.cppstd.as_ref().unwrap());
-                }
                 cmd.arg(format!("-std={}", self.compiler.cppstd.as_ref().unwrap()));
             }
             else {
-                if cfg!(debug_assertions) {
-                    println!("No custom standard specified in 'Build.toml', using 'c++20' as default");
-                }
                 cmd.arg("-std=c++20"); // default to c++20
             }
         }
@@ -181,9 +174,6 @@ impl Build
         // If the default configuration variable is set to true, use the default arguments
         // (note this doesnt support MSVC)
         if use_default_compiler_configuration(compiler_args) {
-            if cfg!(debug_assertions) {
-                println!("Using default compiler configuration");
-            }
             if !is_c_source_file {
                 cmd.args(GCC_AND_CLANG_CPP_DIALECT_OPTIONS);
             }
@@ -246,12 +236,6 @@ impl Build
         }
 
         // If default configuration is not set, then use the user's custom flags
-        if cfg!(debug_assertions) {
-            println!("Using custom arguments on '{}' with these arguments:", file);
-            for arg in compiler_args.as_ref().unwrap() {
-                println!("'{}'", arg);
-            }
-        }
         cmd.args(compiler_args.as_ref().unwrap().iter());
         return cmd;
 
