@@ -30,12 +30,12 @@ fn main()
                 success(&build_config);
             }
         }
+        build_table.write();
     }
     else {
         success(&build_config);
     }
 
-    build_table.write();
 }
 
 fn success(build_config : &Build)
