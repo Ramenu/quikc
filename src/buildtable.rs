@@ -84,7 +84,6 @@ impl BuildTable
         let recompile = AtomicBool::new(false);
         let source_file_name = source_file_path.to_str().unwrap().to_string();
 
-        let dependencies = self.get_file_dependencies(compiler_name, &source_file_name);
 
         // check if source file has changed (note we still need to check if any dependencies have changed to update
         // the build table)
@@ -95,32 +94,35 @@ impl BuildTable
                                                false, 
                                                source_modified_duration,
                                                old_table) {
-            recompile.store(true, Ordering::Relaxed);
             self.table.insert(source_file_name, time);
+            return true;
         }
-        let table = Arc::new(Mutex::new(self.table.clone()));
+        else {
+            let dependencies = self.get_file_dependencies(compiler_name, &source_file_name);
+            let table = Arc::new(Mutex::new(self.table.clone()));
 
-        // check if any dependencies have changed for the source file, if 1 has changed, we can
-        // update all of their times
-        dependencies.par_iter().for_each(|dependency| {
-            // sometimes the compiler shows '\' for line breaks, so we need to ignore those
-            if dependency != "\\" {
-                let mut dependency_path = PathBuf::from(dependency);
-                let source_metadata = dependency_path.metadata().expect("Failed to retrieve metadata from file");
-                let duration = get_duration_since_modified(&source_metadata);
-                if self.file_modified_since_last_build(&mut dependency_path, 
-                                                        dependency, 
-                                                        true,
-                                                        duration,
-                                                             old_table) {
-                    recompile.store(true, Ordering::Relaxed);
-                    let mut table = table.lock().unwrap();
-                    table.insert(dependency.clone(), toml::Value::Integer(duration));
+            // check if any dependencies have changed for the source file, if 1 has changed, we can
+            // update all of their times
+            dependencies.par_iter().for_each(|dependency| {
+                // sometimes the compiler shows '\' for line breaks, so we need to ignore those
+                if dependency != "\\" {
+                    let mut dependency_path = PathBuf::from(dependency);
+                    let source_metadata = dependency_path.metadata().expect("Failed to retrieve metadata from file");
+                    let duration = get_duration_since_modified(&source_metadata);
+                    if self.file_modified_since_last_build(&mut dependency_path, 
+                                                            dependency, 
+                                                            true,
+                                                            duration,
+                                                                old_table) {
+                        recompile.store(true, Ordering::Relaxed);
+                        let mut table = table.lock().unwrap();
+                        table.insert(dependency.clone(), toml::Value::Integer(duration));
+                    }
                 }
-            }
-        });
-        self.table = table.lock().unwrap().clone(); //keep it commented just so if somethings not working uncomment
-        return recompile.load(Ordering::Relaxed);
+            });
+            self.table = table.lock().unwrap().clone(); //keep it commented just so if somethings not working uncomment
+            return recompile.load(Ordering::Relaxed);
+        }
 
     }
 
