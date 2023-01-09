@@ -5,6 +5,15 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[profile.release]
+opt-level = 3
+debug = false
+debug-assertions = false
+lto = true
+panic = "abort"
+strip = "symbols"
+target-cpu = "native"
+
 [dependencies]
 rayon = "1.6"
 color-print = "0.3.4"
