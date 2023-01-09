@@ -24,6 +24,9 @@ BUILD_TOML_PATH = "./Build.toml"
 BUILD_INFO_DIR = "./buildinfo"
 BUILD_INFO_OBJ_DIR = f"{BUILD_INFO_DIR}/obj"
 BUILD_INFO_TABLE_TOML = f"{BUILD_INFO_DIR}/table.toml"
+SOURCE_DIR = "./src"
+INCLUDE_DIR = "./include"
+MAIN_C_SOURCE_FILE = f"{SOURCE_DIR}/main.c"
 
 BUILD_TOML_STR = f"\
 [package]\n\
@@ -33,17 +36,31 @@ BUILD_TOML_STR = f"\
 [compiler]\n\
     compiler = \"gcc\""
 
+SOURCE_FILE_STR = f"\
+#include <stdio.h>\n\
+\n\
+int main()\n\
+{{\n\
+    printf(\"Hello world!\\n\");\n\
+    return 0;\n\
+}}"
+
 
 try:
     if not isfile(BUILD_TOML_PATH):
         with open(BUILD_TOML_PATH, "w") as f:
             f.write(BUILD_TOML_STR)
 
-    if not isdir(BUILD_INFO_DIR):
-        mkdir(BUILD_INFO_DIR)
+    if not isdir(SOURCE_DIR):
+        mkdir(SOURCE_DIR)
+    
+    if not isdir(INCLUDE_DIR):
+        mkdir(INCLUDE_DIR)
 
-    if not isdir(BUILD_INFO_OBJ_DIR):
-        mkdir(BUILD_INFO_OBJ_DIR)
+    if not isfile(MAIN_C_SOURCE_FILE):
+        with open(MAIN_C_SOURCE_FILE, "w") as f:
+            f.write(SOURCE_FILE_STR)
+
 except Exception as e:
     print(f"{Color.BOLD}{Color.FAIL}error{Color.ENDC}{Color.BOLD}:{Color.ENDC} {e}")
     exit(1)
