@@ -75,8 +75,9 @@ impl Build
             cached_toml = Some(toml::from_str(&cached_file_contents).expect("Failed to parse cached build configuration file"));
         }
         else {
-
+            fs::copy(BUILD_CONFIG_FILE, BUILD_CONFIG_CACHE_FILE).expect("Failed to cache build configuration file");
         }
+
         let mut config = Build::default();
 
         // If a default compiler is not provided, select one automatically
@@ -99,8 +100,7 @@ impl Build
                       config.compiler.compiler);
         }
 
-        // Make sure the cached toml exists before comparing the files, if it doesnt then copy the current toml config
-        // into the cached file
+        // Make sure the cached toml exists before comparing the files
         if cached_toml.is_some() {
             // Check if the configuration file has changed since the last build, if so we need to remove all the object
             // files to recompile them again
@@ -109,12 +109,6 @@ impl Build
                     fs::remove_dir_all(BUILD_TABLE_OBJECT_FILE_DIRECTORY).expect("Failed to remove build table object file directory");
                 }
             }
-            else {
-                fs::copy(BUILD_CONFIG_FILE, BUILD_CONFIG_CACHE_FILE).expect("Failed to cache build configuration file");
-            }
-        }
-        else {
-            fs::copy(BUILD_CONFIG_FILE, BUILD_CONFIG_CACHE_FILE).expect("Failed to cache build configuration file");
         }
 
         config.misc = match &toml_config.misc {
