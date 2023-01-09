@@ -1,4 +1,6 @@
-use std::{path::{PathBuf, Path}, fs::{File, self, Metadata}, time::UNIX_EPOCH, process::{Command}};
+use std::{path::{PathBuf, Path}, fs::{File, self, Metadata}, time::UNIX_EPOCH, process::{Command}, sync::{atomic::{AtomicBool, Ordering}, Mutex, Arc}};
+
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
 use crate::{compiler::{self, INCLUDE_PATH}};
 
@@ -78,45 +80,48 @@ impl BuildTable
                                   source_file_path : &mut PathBuf,
                                   compiler_name : &str) -> bool
     {
-        let mut recompile = false;
+        let recompile = AtomicBool::new(false);
         let source_file_name = source_file_path.to_str().unwrap().to_string();
 
         let dependencies = self.get_file_dependencies(compiler_name, &source_file_name);
 
-        // check if source file has changed (note we still need to check if any dependencies have changed to update)
-        // the build table
+        // check if source file has changed (note we still need to check if any dependencies have changed to update
+        // the build table)
         let source_modified_duration = get_duration_since_modified(&source_file_path.metadata().unwrap());
+        let time = toml::Value::Integer(source_modified_duration);
         if self.file_modified_since_last_build(source_file_path, 
                                                &source_file_name, 
                                                false, 
                                                source_modified_duration) {
-            self.table.insert(source_file_name, toml::Value::Integer(source_modified_duration));
-            recompile = true;
+            recompile.store(true, Ordering::Relaxed);
+            self.table.insert(source_file_name, time);
         }
-        let mut time : toml::Value = toml::Value::Integer(source_modified_duration);
+        let table = Arc::new(Mutex::new(self.table.clone()));
 
         // check if any dependencies have changed for the source file, if 1 has changed, we can
         // update all of their times
-        for dependency in dependencies {
+        dependencies.par_iter().for_each(|dependency| {
             // sometimes the compiler shows '\' for line breaks, so we need to ignore those
             if dependency != "\\" {
-                let mut dependency_path = PathBuf::from(&dependency);
+                let mut dependency_path = PathBuf::from(dependency);
                 let source_metadata = dependency_path.metadata().expect("Failed to retrieve metadata from file");
                 let duration = get_duration_since_modified(&source_metadata);
                 if self.file_modified_since_last_build(&mut dependency_path, 
-                                                        &dependency, 
+                                                        dependency, 
                                                         true,
                                                         duration) {
-                    self.table.insert(dependency, time.clone());
+                    recompile.store(true, Ordering::Relaxed);
+                    let mut table = table.lock().unwrap();
+                    table.insert(dependency.clone(), toml::Value::Integer(duration));
                 }
-                time = toml::Value::Integer(duration);
             }
-        }
-        return recompile;
+        });
+        self.table = table.lock().unwrap().clone();
+        return recompile.load(Ordering::Relaxed);
 
     }
 
-    fn file_modified_since_last_build(&mut self, 
+    fn file_modified_since_last_build(&self, 
                                        source_file_path : &mut PathBuf, 
                                        source_file_name : &String,
                                        is_header_file : bool,
