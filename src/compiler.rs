@@ -108,7 +108,7 @@ pub fn compile_to_object_files(source_files : &Vec<String>,
         
         if !output.status.success() {
             let s = String::from_utf8_lossy(&output.stderr);
-            eprintln!("{}\n{}", s, cformat!("<red><bold>error:</bold></red> Failed to compile '{}'\nTerminating compilation.", file));
+            eprintln!("{}\n{}", s, cformat!("<bold><red>error</red>:</bold> Failed to compile '{}'\nTerminating compilation.", file));
 
             // If there is a object file present from earlier compilations, remove it so that
             // the next time the program is run, it will know that an error occurred so it can
