@@ -1,4 +1,4 @@
-use std::{path::{PathBuf, Path}, fs::{File, self, Metadata}, time::UNIX_EPOCH, process::{Command}, sync::{atomic::{AtomicBool, Ordering}, Mutex, Arc}, collections::HashSet};
+use std::{path::{PathBuf, Path}, fs::{File, self, Metadata}, time::UNIX_EPOCH, process::{Command}, sync::{atomic::{AtomicBool, Ordering}}, collections::HashSet};
 
 use jwalk::WalkDir;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
@@ -190,9 +190,4 @@ impl BuildTable
         fs::write(BUILD_TABLE_FILE, toml::to_string(&self.table).unwrap()).expect("Failed to write to file");
     }
 
-    #[inline]
-    pub fn get_table(&self) -> &toml::value::Table
-    {
-        return &self.table;
-    }
 }
