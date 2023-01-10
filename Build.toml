@@ -1,6 +1,27 @@
 [package]
-    name = "startup"
-    debug_build = false
+    name = "startup" # Name of the package (required)
+    debug_build = true # Set to true by default, but set to false for an optimized build (required)
     
 [compiler]
-    compiler = "gcc"
+    compiler = "gcc" # Compiler name (optional but highly recommended)
+    args = [] # Compiler arguments (optional)
+    cstd = "c17" # C standard (optional)
+    cppstd = "c++20" # C++ standard (optional)
+    
+[linker]
+    args = [] # Linker arguments (optional)
+    libraries = [] # Libraries to link with (optional)
+    
+[misc]
+    # Level 1 = No optimizations
+    # Level 2 = Most optimizations enabled
+    # Level 3 = Extreme optimizations for performance, will not produce a cross-platform binary and could
+    # some parts of the program may not work as intended
+    
+    # By default, quikc will use level 1 for debug builds and level 2 for
+    # release builds
+    optimization_level = 1 # (optional)
+    
+    # Only works for GCC at the moment and really only enables '-fanalyzer'
+    # be aware that turning this on will increase compilation time
+    static_analysis_enabled = false
