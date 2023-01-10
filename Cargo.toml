@@ -1,5 +1,5 @@
 [package]
-name = "startup"
+name = "quikc"
 version = "0.1.0"
 edition = "2021"
 
@@ -12,7 +12,6 @@ debug-assertions = false
 lto = true
 panic = "abort"
 strip = "symbols"
-target-cpu = "native"
 
 [dependencies]
 rayon = "1.6"
@@ -20,3 +19,4 @@ color-print = "0.3.4"
 toml = "0.5.10"
 serde = "1.0"
 serde_derive = "1.0"
+jwalk = "0.1.0"
