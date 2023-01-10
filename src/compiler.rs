@@ -5,8 +5,17 @@ use std::path::Path;
 
 use crate::{buildtable::{BUILD_TABLE_OBJECT_FILE_DIRECTORY}, build::{Build}};
 
-pub const INCLUDE_PATH : &str = "-I./include";
+pub const INCLUDE_PATH_FLAG : &str = "-I./include";
+pub const INCLUDE_PATH : &str = "./include";
 
+#[inline]
+pub fn is_header_file(file : &String) -> bool
+{
+    if file.ends_with(".h") {
+        return true;
+    }
+    return file.ends_with(".hpp") || file.ends_with(".hxx") || file.ends_with(".hh");
+}
 #[inline]
 pub fn to_output_file(path : &mut PathBuf, directory : &str, ext : &str) -> String
 {
@@ -89,7 +98,7 @@ pub fn compile_to_object_files(source_files : &Vec<String>,
 
         
         let output = build_info.execute_compiler_with_build_info(file)
-                                       .arg(INCLUDE_PATH)
+                                       .arg(INCLUDE_PATH_FLAG)
                                        .arg(file)
                                        .arg("-c")
                                        .arg("-o")

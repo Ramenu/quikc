@@ -9,9 +9,9 @@ use crate::{compiler, buildtable::BuildTable};
 pub fn retrieve_source_files(dir: &str, 
                              source_files: &mut Vec<String>, 
                              compiler_name : &str, 
-                             build_table : &mut BuildTable) 
+                             build_table : &mut BuildTable,
+                             old_table : &mut toml::value::Table) 
 {
-    let old_table = build_table.get_table().clone();
     let mut has_source_file = false;
     let paths = fs::read_dir(dir).expect("Failed to read from directory");
     
