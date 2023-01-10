@@ -1,5 +1,5 @@
 use std::{fs::{self}, process::Command, path::Path};
-use color_print::{cprintln};
+use color_print::{cprintln, cformat};
 use serde_derive::Deserialize;
 
 use crate::{defaultbuild::{GCC_COMPILER_NONEXCLUSIVE_WARNINGS, GCC_COMPILER_C_EXCLUSIVE_WARNINGS, GCC_COMPILER_CPP_DIALECT_OPTIONS, GCC_COMPILER_CPP_EXCLUSIVE_WARNINGS, GCC_STATIC_ANALYSIS_OPTIONS, GCC_AND_CLANG_DIALECT_OPTIONS, CLANG_COMPILER_NONEXCLUSIVE_WARNINGS, CLANG_COMPILER_CPP_WARNINGS, GCC_AND_CLANG_OPTIMIZATION_OPTIONS, GCC_AND_CLANG_ENHANCED_OPTIMIZATION_OPTIONS, GCC_AND_CLANG_LINKER_OPTIONS, GCC_AND_CLANG_CPP_DIALECT_OPTIONS}, compiler::{self, use_default_compiler_configuration, select_default_compiler}, buildtable::{BUILD_TABLE_OBJECT_FILE_DIRECTORY, BUILD_TABLE_DIRECTORY, BUILD_TABLE_FILE}, linker};
@@ -64,6 +64,11 @@ impl Build
     {
         if !Path::new(BUILD_TABLE_DIRECTORY).exists() {
             fs::create_dir(BUILD_TABLE_DIRECTORY).expect("Failed to create directory")
+        }
+
+        if !Path::new(BUILD_CONFIG_FILE).exists() {
+            eprintln!("{}", cformat!("<bold><red>error</red>:</bold> 'Build.toml' not found in working directory\nTerminating program."));
+            std::process::exit(1);
         }
         let file_contents = fs::read_to_string(BUILD_CONFIG_FILE).expect("Failed to read from build configuration file");
         let toml_config : BuildOption = toml::from_str(&file_contents).expect("Failed to parse build configuration file");
