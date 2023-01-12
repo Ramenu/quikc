@@ -25,6 +25,8 @@ just to even get a small project working.
 ## Who is this not for?
 
 If your project requires each compilation unit to be compiled with its own seperate flags, or has more than one build targets, then quikc is not for you.
+Also, since quikc enables various warnings, it is very likely that your code will not compile the first time. This can be an issue for larger codebases.
+Fortunately, you can disable the default settings by providing your own flags. Exceptions, virtual methods, and RTTI are also disabled by default if the compiler supports it.
 
 ## How to use
 
