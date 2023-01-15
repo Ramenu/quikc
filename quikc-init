@@ -65,6 +65,6 @@ except Exception as e:
     print(f"{Color.BOLD}{Color.FAIL}error{Color.ENDC}{Color.BOLD}:{Color.ENDC} {e}")
     exit(1)
 
-print(f"{Color.OKGREEN}{Color.BOLD}Successfully created package '{packageName}'. You're all ready to go! :)")
+print(f"{Color.OKGREEN}{Color.BOLD}Successfully created package '{packageName}'. You're all ready to go! :){Color.ENDC}")
 
 
