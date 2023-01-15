@@ -17,9 +17,9 @@ pub struct BuildTable
 }
 
 #[inline]
-fn get_duration_since_modified(metadata : &Metadata) -> i64
+pub fn get_duration_since_modified(metadata : &Metadata) -> i64
 {
-    return (metadata.modified().unwrap().duration_since(UNIX_EPOCH).unwrap().as_secs()) as i64;
+    return (metadata.modified().unwrap().duration_since(UNIX_EPOCH).unwrap().as_millis()) as i64;
 }
 
 fn file_modified_since_last_build(source_file_path : &mut PathBuf, 
