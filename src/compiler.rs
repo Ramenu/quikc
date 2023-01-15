@@ -121,6 +121,6 @@ pub fn compile_to_object_files(source_files : &Vec<String>,
             return;
         }
     });
-
+    // TODO: If the compilation failed, terminate the program (only do this after updating the build table)
     return compilation_successful.load(std::sync::atomic::Ordering::Relaxed);
 }

@@ -184,6 +184,7 @@ impl BuildTable
     }
 
 
+    // TODO: implement this in drop
     #[inline]
     pub fn write(&self)
     {
