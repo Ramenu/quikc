@@ -1,5 +1,6 @@
 use std::{process::Command, fs::{self, OpenOptions}, env, path::Path, io::{self, Write}, time::{SystemTime, UNIX_EPOCH}};
 
+use color_print::cprintln;
 use filetime::{set_file_mtime, FileTime};
 use jwalk::WalkDir;
 
@@ -117,8 +118,33 @@ fn to_test_directory() -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
+fn reset() -> Result<(), Box<dyn std::error::Error>>
+{
+    env::set_current_dir("..")?;
+    fs::remove_dir_all("./testdir")?;
+    Ok(())
+}
 
+/// This is meant to be used to test all of the functions.
+/// It runs it sequentially because running them independently
+/// can have unintended side affects.
 #[test]
+fn test_all() -> Result<(), Box<dyn std::error::Error>>
+{
+    test_quikc_init()?;
+    reset()?;
+
+    test_first_time_compilation()?;
+    reset()?;
+
+    test_recompilation()?;
+    reset()?;
+
+    test_invalid_file_recompiles()?;
+
+    Ok(())
+}
+
 fn test_quikc_init() ->  Result<(), Box<dyn std::error::Error>>
 {
 
@@ -139,7 +165,6 @@ fn test_quikc_init() ->  Result<(), Box<dyn std::error::Error>>
 }
 
 /// This will treat the project as if it needs to be rebuilt entirely.
-#[test]
 fn test_first_time_compilation() -> Result<(), Box<dyn std::error::Error>>
 {
     initialize_project(true, false)?;
@@ -160,7 +185,8 @@ fn test_first_time_compilation() -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
-#[test]
+/// Will test if the files will recompile after being modified.
+/// This includes header files and source files.
 fn test_recompilation() -> Result<(), Box<dyn std::error::Error>>
 {
     test_first_time_compilation()?; 
@@ -203,7 +229,8 @@ fn test_recompilation() -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
-#[test]
+/// Will test if 'quikc' knows to recompile a file again if it
+/// had an error.
 fn test_invalid_file_recompiles() -> Result<(), Box<dyn std::error::Error>>
 {
     initialize_project(true, true)?;
