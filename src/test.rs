@@ -202,3 +202,30 @@ fn test_recompilation() -> Result<(), Box<dyn std::error::Error>>
 
     Ok(())
 }
+
+#[test]
+fn test_invalid_file_recompiles() -> Result<(), Box<dyn std::error::Error>>
+{
+    initialize_project(true, true)?;
+
+    let mut tools = Tools::new();
+    get_src_files(&mut tools);
+
+    // TOTAL_SOURCE_FILES + 1 because we added an invalid file
+    assert_eq!(tools.source_files.len(), TOTAL_SOURCE_FILES + 1);
+    let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
+
+    // Compilation should have failed since the invalid file has a error in it
+    assert_eq!(compilation_success, false); 
+
+    tools.build_table.write();
+    
+    // Now we compile again
+    let mut tools = Tools::new();
+    get_src_files(&mut tools);
+
+    // The invalid file should have been the only file that needed to be recompiled
+    assert_eq!(tools.source_files.len(), 1);
+
+    Ok(())
+}
