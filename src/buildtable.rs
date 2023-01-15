@@ -183,12 +183,13 @@ impl BuildTable
 
     }
 
+}
 
-    // TODO: implement this in drop
+impl Drop for BuildTable
+{
     #[inline]
-    pub fn write(&self)
+    fn drop(&mut self)
     {
         fs::write(BUILD_TABLE_FILE, toml::to_string(&self.table).unwrap()).expect("Failed to write to file");
     }
-
 }

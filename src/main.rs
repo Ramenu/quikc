@@ -34,7 +34,6 @@ fn main()
                 success(&build_config);
             }
         }
-        build_table.write();
     }
     else {
         success(&build_config);

@@ -180,7 +180,6 @@ fn test_first_time_compilation() -> Result<(), Box<dyn std::error::Error>>
     let link_success = link_files(&tools.build_config);
     assert_eq!(link_success, true);
 
-    tools.build_table.write();
 
     Ok(())
 }
@@ -191,40 +190,45 @@ fn test_recompilation() -> Result<(), Box<dyn std::error::Error>>
 {
     test_first_time_compilation()?; 
 
+    // note we introduce different scopes so the build table file is written to
+    // once the build table has been dropped
+
     // Compiled it once, now we modify a specific source file and recompile
-    let source_file_to_modify = format!("{}/{}", SOURCE_DIRECTORY, "main.c");
-    modify_file_time(source_file_to_modify.as_str())?;
-    let mut tools = Tools::new();
-    get_src_files(&mut tools);
+    {
+        let source_file_to_modify = format!("{}/{}", SOURCE_DIRECTORY, "main.c");
+        modify_file_time(source_file_to_modify.as_str())?;
+        let mut tools = Tools::new();
+        get_src_files(&mut tools);
 
-    // Should be only 1 file that was added, since we modified one file only
-    assert_eq!(tools.source_files.len(), 1); 
-    let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
+        // Should be only 1 file that was added, since we modified one file only
+        assert_eq!(tools.source_files.len(), 1); 
+        let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
 
-    assert_eq!(compilation_success, true);
-    assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_SOURCE_FILES);
+        assert_eq!(compilation_success, true);
+        assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_SOURCE_FILES);
 
-    let link_success = link_files(&tools.build_config);
-    assert_eq!(link_success, true);
+        let link_success = link_files(&tools.build_config);
+        assert_eq!(link_success, true);
+    }
 
-    tools.build_table.write();
+    // Modify the header file, once modified, then all of the source files that
+    // depended on it need to be recompiled
+    {
+        let header_file_to_modify = format!("{}/{}", INCLUDE_PATH, "hi.h");
+        modify_file_time(header_file_to_modify.as_str())?;
+        let mut tools = Tools::new();
+        get_src_files(&mut tools);
 
-    let header_file_to_modify = format!("{}/{}", INCLUDE_PATH, "hi.h");
-    modify_file_time(header_file_to_modify.as_str())?;
-    let mut tools = Tools::new();
-    get_src_files(&mut tools);
+        // 2 source files depend on the header
+        assert_eq!(tools.source_files.len(), 2);
 
-    // 2 source files depend on the header
-    assert_eq!(tools.source_files.len(), 2);
+        let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
+        assert_eq!(compilation_success, true);
+        assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_SOURCE_FILES);
 
-    let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
-    assert_eq!(compilation_success, true);
-    assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_SOURCE_FILES);
-
-    let link_success = link_files(&tools.build_config);
-    assert_eq!(link_success, true);
-
-    tools.build_table.write();
+        let link_success = link_files(&tools.build_config);
+        assert_eq!(link_success, true);
+    }
 
     Ok(())
 }
@@ -233,20 +237,20 @@ fn test_recompilation() -> Result<(), Box<dyn std::error::Error>>
 /// had an error.
 fn test_invalid_file_recompiles() -> Result<(), Box<dyn std::error::Error>>
 {
-    initialize_project(true, true)?;
+    {
+        initialize_project(true, true)?;
 
-    let mut tools = Tools::new();
-    get_src_files(&mut tools);
+        let mut tools = Tools::new();
+        get_src_files(&mut tools);
 
-    // TOTAL_SOURCE_FILES + 1 because we added an invalid file
-    assert_eq!(tools.source_files.len(), TOTAL_SOURCE_FILES + 1);
-    let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
+        // TOTAL_SOURCE_FILES + 1 because we added an invalid file
+        assert_eq!(tools.source_files.len(), TOTAL_SOURCE_FILES + 1);
+        let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
 
-    // Compilation should have failed since the invalid file has a error in it
-    assert_eq!(compilation_success, false); 
+        // Compilation should have failed since the invalid file has a error in it
+        assert_eq!(compilation_success, false); 
+    }
 
-    tools.build_table.write();
-    
     // Now we compile again
     let mut tools = Tools::new();
     get_src_files(&mut tools);
