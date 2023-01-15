@@ -1,9 +1,11 @@
-use std::{process::Command, fs, env, path::Path, io};
+use std::{process::Command, fs::{self, OpenOptions}, env, path::Path, io::{self, Write}, time::{SystemTime, UNIX_EPOCH}};
 
+use filetime::{set_file_mtime, FileTime};
 use jwalk::WalkDir;
 
-use crate::{build::{BUILD_CONFIG_FILE, Build}, SOURCE_DIRECTORY, compiler::{INCLUDE_PATH, compile_to_object_files}, buildtable::{BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY}, walker, linker::link_files};
+use crate::{build::{BUILD_CONFIG_FILE, Build}, SOURCE_DIRECTORY, compiler::{INCLUDE_PATH, compile_to_object_files, is_c_source_file, is_cpp_source_file, is_header_file}, buildtable::{BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY, get_duration_since_modified}, walker, linker::link_files};
 
+const TOTAL_SOURCE_FILES : usize = 2;
 
 struct Tools
 {
@@ -31,6 +33,21 @@ impl Tools
     }
 }
 
+/// This function doesn't literally modify the file, but it
+/// does change the time it was modified
+fn modify_file_time(file : &str) -> Result<(), Box<dyn std::error::Error>>
+{
+    let time = get_duration_since_modified(&fs::metadata(file)?);
+    set_file_mtime(file, SystemTime::now().into())?;
+    let new_time = get_duration_since_modified(&fs::metadata(file)?);
+
+    assert_ne!(time, new_time);
+
+    Ok(())
+}
+
+
+
 #[inline]
 fn get_src_files(tools : &mut Tools)
 {
@@ -39,12 +56,21 @@ fn get_src_files(tools : &mut Tools)
                                   &tools.build_config.get_compiler_name(), 
                                   &mut tools.build_table,
                                   &mut tools.old_table);
+    
 }
 
 /// Initializes the project. If you the 'setup_additional_files' parameter is set to true,
-/// then the function will copy additional source files to 'src'.
-fn initialize_project(setup_additional_files : bool) -> Result<(), Box<dyn std::error::Error>>
+/// then the function will copy additional source files to 'src'. If the 'with_invalid_file'
+/// parameter is set to true, then the function will copy an invalid source file to 'src'.
+/// This should be done if you want to check if quikc will recompile the source file after
+/// the error.
+fn initialize_project(setup_additional_files : bool, 
+                      with_invalid_file : bool) -> Result<(), Box<dyn std::error::Error>>
 {
+    const TEST_FILES_DIR : &str = "../testfiles";
+    const INVALID_FILE_NAME : &str = "invalid.c";
+    let invalid_file = format!("{}/invalid/{}", TEST_FILES_DIR, INVALID_FILE_NAME);
+
     to_test_directory()?;
 
     const TEST_PACKAGE_NAME : &str = "test_binary";
@@ -56,14 +82,23 @@ fn initialize_project(setup_additional_files : bool) -> Result<(), Box<dyn std::
     assert_eq!(status.success(), true);
 
     if setup_additional_files {
-        let dir = fs::read_dir("../testfiles")?;
+        let dir = fs::read_dir(TEST_FILES_DIR)?;
         for entry in dir {
             let entry = entry?;
             let path = entry.path();
             let name = path.as_os_str().to_str().unwrap();
             if path.is_file() {
-                fs::copy(name, format!("{}/{}", SOURCE_DIRECTORY, path.file_name().unwrap().to_str().unwrap()))?;
+                if is_c_source_file(name) || is_cpp_source_file(name){
+                    fs::copy(name, format!("{}/{}", SOURCE_DIRECTORY, path.file_name().unwrap().to_str().unwrap()))?;
+                }
+                else if is_header_file(name) {
+                    fs::copy(name, format!("{}/{}", INCLUDE_PATH, path.file_name().unwrap().to_str().unwrap()))?;
+                }
             }
+        }
+
+        if with_invalid_file {
+            fs::copy(invalid_file, format!("{}/{}", SOURCE_DIRECTORY, INVALID_FILE_NAME))?;
         }
     }
 
@@ -91,7 +126,7 @@ fn test_quikc_init() ->  Result<(), Box<dyn std::error::Error>>
     // 'initialize_project' will create many source files, however the file generated
     // by the 'quikc-init' command is the only one we need to check for. The other ones
     // are for testing purposes only, which is why only 'source_file' is checked
-    initialize_project(false)?;
+    initialize_project(false, false)?;
 
     let source_file = format!("{}/main.c", SOURCE_DIRECTORY);
 
@@ -107,11 +142,10 @@ fn test_quikc_init() ->  Result<(), Box<dyn std::error::Error>>
 #[test]
 fn test_first_time_compilation() -> Result<(), Box<dyn std::error::Error>>
 {
-    initialize_project(true)?;
+    initialize_project(true, false)?;
     let mut tools = Tools::new();
     get_src_files(&mut tools);
 
-    const TOTAL_SOURCE_FILES : usize = 2;
     assert_eq!(tools.source_files.len(), TOTAL_SOURCE_FILES);
 
     let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
@@ -120,6 +154,51 @@ fn test_first_time_compilation() -> Result<(), Box<dyn std::error::Error>>
 
     let link_success = link_files(&tools.build_config);
     assert_eq!(link_success, true);
-    
+
+    tools.build_table.write();
+
+    Ok(())
+}
+
+#[test]
+fn test_recompilation() -> Result<(), Box<dyn std::error::Error>>
+{
+    test_first_time_compilation()?; 
+
+    // Compiled it once, now we modify a specific source file and recompile
+    let source_file_to_modify = format!("{}/{}", SOURCE_DIRECTORY, "main.c");
+    modify_file_time(source_file_to_modify.as_str())?;
+    let mut tools = Tools::new();
+    get_src_files(&mut tools);
+
+    // Should be only 1 file that was added, since we modified one file only
+    assert_eq!(tools.source_files.len(), 1); 
+    let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
+
+    assert_eq!(compilation_success, true);
+    assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_SOURCE_FILES);
+
+    let link_success = link_files(&tools.build_config);
+    assert_eq!(link_success, true);
+
+    tools.build_table.write();
+
+    let header_file_to_modify = format!("{}/{}", INCLUDE_PATH, "hi.h");
+    modify_file_time(header_file_to_modify.as_str())?;
+    let mut tools = Tools::new();
+    get_src_files(&mut tools);
+
+    // 2 source files depend on the header
+    assert_eq!(tools.source_files.len(), 2);
+
+    let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
+    assert_eq!(compilation_success, true);
+    assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_SOURCE_FILES);
+
+    let link_success = link_files(&tools.build_config);
+    assert_eq!(link_success, true);
+
+    tools.build_table.write();
+
     Ok(())
 }
