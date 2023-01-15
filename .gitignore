@@ -4,3 +4,4 @@
 /main
 /*.sh
 !build.sh
+/testdir
