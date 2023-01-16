@@ -7,17 +7,17 @@ use crate::{build::{BUILD_CONFIG_FILE, Build}, SOURCE_DIRECTORY, compiler::{INCL
 const TOTAL_SOURCE_FILES : usize = 3;
 const TEST_FILES_DIR : &str = "../testfiles";
 
-struct Tools
+pub struct Tools
 {
-    build_config : Build,
-    source_files : Vec<String>,
-    old_table : toml::value::Table,
-    build_table : BuildTable
+    pub build_config : Build,
+    pub source_files : Vec<String>,
+    pub old_table : toml::value::Table,
+    pub build_table : BuildTable
 }
 
-struct Settings
+pub struct Settings
 {
-    use_clang : bool
+    pub use_clang : bool
 }
 
 impl Tools
@@ -46,7 +46,7 @@ fn get_source_file(file_name : &str) -> String
 
 /// This function doesn't literally modify the file, but it
 /// does change the time it was modified
-fn modify_file_time(file : &str) -> Result<(), Box<dyn std::error::Error>>
+pub fn modify_file_time(file : &str) -> Result<(), Box<dyn std::error::Error>>
 {
     let time = get_duration_since_modified(&fs::metadata(file)?);
     set_file_mtime(file, SystemTime::now().into())?;
@@ -75,7 +75,7 @@ fn get_src_files(tools : &mut Tools)
 /// parameter is set to true, then the function will copy an invalid source file to 'src'.
 /// This should be done if you want to check if quikc will recompile the source file after
 /// the error.
-fn initialize_project(setup_additional_files : bool, 
+pub fn initialize_project(setup_additional_files : bool, 
                       with_invalid_file : bool,
                       settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
 {

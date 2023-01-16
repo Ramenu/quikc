@@ -10,6 +10,8 @@ mod defaultbuild;
 mod build;
 #[cfg(test)]
     mod test;
+#[cfg(test)]
+    mod benchmark;
 
 const SOURCE_DIRECTORY : &str = "./src";
 
