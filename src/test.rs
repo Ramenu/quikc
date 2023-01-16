@@ -291,3 +291,12 @@ fn test_recompile_after_config_change() -> Result<(), Box<dyn std::error::Error>
 
     Ok(())
 }
+
+
+fn test_recompile_after_deletion() -> Result<(), Box<dyn std::error::Error>>
+{
+    test_first_time_compilation()?;
+
+    
+    Ok(())
+}
