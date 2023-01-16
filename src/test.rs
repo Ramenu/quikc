@@ -304,22 +304,24 @@ fn test_recompile_after_config_change() -> Result<(), Box<dyn std::error::Error>
 
 fn test_recompile_after_deletion() -> Result<(), Box<dyn std::error::Error>>
 {
+    const FILE_TO_BE_DELETED : &str = "dep.c";
     test_first_time_compilation()?;
 
-    fs::remove_file(get_source_file("dep.c"))?;
+    fs::remove_file(get_source_file(FILE_TO_BE_DELETED))?;
     
-    const TOTAL_FILES : usize = TOTAL_SOURCE_FILES - 1;
-    // Once the file is removed, recompilation should begin since the source file
-    // had a dependency included
+    const NUM_FILES_AFTER_DELETION : usize = TOTAL_SOURCE_FILES - 1;
+    // Once the file is removed, recompilation should begin
     {
         let mut tools = Tools::new();
         get_src_files(&mut tools);
 
-        assert_eq!(tools.source_files.len(), TOTAL_FILES);
+        assert_eq!(tools.source_files.len(), NUM_FILES_AFTER_DELETION);
 
         let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
+
         assert_eq!(compilation_success, true);
-        assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_FILES);
+        assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), NUM_FILES_AFTER_DELETION);
+        assert_eq!(tools.build_table.contains(format!("{}/{}", SOURCE_DIRECTORY, FILE_TO_BE_DELETED).as_str()), false);
 
         let link_success = link_files(&tools.build_config);
         assert_eq!(link_success, true);
