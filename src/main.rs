@@ -49,16 +49,6 @@ fn success(build_config : &Build)
     };
 
     cprintln!("<green><bold>Successfully built target {} [{} build]</bold></green>", 
-            retrieve_file_name(build_config.get_package_name()),
+            build_config.get_package_name(),
             build_type);
-}
-
-fn retrieve_file_name(s : &str) -> String
-{
-    for (i, c) in s.chars().rev().enumerate() {
-        if c == '/' {
-            return s[(s.len() - i)..].to_string();
-        }
-    }
-    return s.to_string();
 }

@@ -183,6 +183,18 @@ impl BuildTable
 
     }
 
+    #[inline]
+    pub fn erase(&mut self, path_str : &str)
+    {
+        self.table.remove(path_str);
+    }
+
+    #[cfg(test)]
+    pub fn contains(&self, path_str : &str) -> bool
+    {
+        return self.table.contains_key(path_str);
+    }
+
 }
 
 impl Drop for BuildTable
