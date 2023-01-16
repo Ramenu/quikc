@@ -4,7 +4,7 @@ use filetime::{set_file_mtime};
 
 use crate::{build::{BUILD_CONFIG_FILE, Build}, SOURCE_DIRECTORY, compiler::{INCLUDE_PATH, compile_to_object_files, is_c_source_file, is_cpp_source_file, is_header_file}, buildtable::{BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY, get_duration_since_modified}, walker, linker::link_files};
 
-const TOTAL_SOURCE_FILES : usize = 2;
+const TOTAL_SOURCE_FILES : usize = 3;
 const TEST_FILES_DIR : &str = "../testfiles";
 
 struct Tools
@@ -31,6 +31,12 @@ impl Tools
             build_table
         };
     }
+}
+
+#[inline]
+fn get_source_file(file_name : &str) -> String
+{
+    return format!("{}/{}", SOURCE_DIRECTORY, file_name);
 }
 
 /// This function doesn't literally modify the file, but it
@@ -142,6 +148,9 @@ fn test_all() -> Result<(), Box<dyn std::error::Error>>
     reset()?;
 
     test_recompile_after_config_change()?;
+    reset()?;
+
+    test_recompile_after_deletion()?;
 
     Ok(())
 }
@@ -220,8 +229,8 @@ fn test_recompilation() -> Result<(), Box<dyn std::error::Error>>
         let mut tools = Tools::new();
         get_src_files(&mut tools);
 
-        // 2 source files depend on the header
-        assert_eq!(tools.source_files.len(), 2);
+        // 3 source files depend on the header
+        assert_eq!(tools.source_files.len(), 3);
 
         let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
         assert_eq!(compilation_success, true);
@@ -297,6 +306,25 @@ fn test_recompile_after_deletion() -> Result<(), Box<dyn std::error::Error>>
 {
     test_first_time_compilation()?;
 
+    fs::remove_file(get_source_file("dep.c"))?;
     
+    const TOTAL_FILES : usize = TOTAL_SOURCE_FILES - 1;
+    // Once the file is removed, recompilation should begin since the source file
+    // had a dependency included
+    {
+        let mut tools = Tools::new();
+        get_src_files(&mut tools);
+
+        assert_eq!(tools.source_files.len(), TOTAL_FILES);
+
+        let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
+        assert_eq!(compilation_success, true);
+        assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_FILES);
+
+        let link_success = link_files(&tools.build_config);
+        assert_eq!(link_success, true);
+
+    }
+
     Ok(())
 }
