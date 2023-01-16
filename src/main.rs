@@ -9,7 +9,7 @@ mod linker;
 mod defaultbuild;
 mod build;
 #[cfg(test)]
-mod test;
+    mod test;
 
 const SOURCE_DIRECTORY : &str = "./src";
 
