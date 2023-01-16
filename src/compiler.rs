@@ -9,7 +9,7 @@ pub const INCLUDE_PATH_FLAG : &str = "-I./include";
 pub const INCLUDE_PATH : &str = "./include";
 
 #[inline]
-pub fn is_header_file(file : &String) -> bool
+pub fn is_header_file(file : &str) -> bool
 {
     if file.ends_with(".h") {
         return true;
@@ -24,13 +24,13 @@ pub fn to_output_file(path : &mut PathBuf, directory : &str, ext : &str) -> Stri
 }
 
 #[inline]
-pub fn is_cpp_source_file(file : &String) -> bool
+pub fn is_cpp_source_file(file : &str) -> bool
 {
     return file.ends_with(".cpp") || file.ends_with(".cxx") || file.ends_with(".cc");
 }
 
 #[inline]
-pub fn is_c_source_file(file : &String) -> bool
+pub fn is_c_source_file(file : &str) -> bool
 {
     return file.ends_with(".c");
 }
@@ -121,6 +121,6 @@ pub fn compile_to_object_files(source_files : &Vec<String>,
             return;
         }
     });
-
+    // TODO: If the compilation failed, terminate the program (only do this after updating the build table)
     return compilation_successful.load(std::sync::atomic::Ordering::Relaxed);
 }

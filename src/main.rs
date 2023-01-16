@@ -8,6 +8,8 @@ mod buildtable;
 mod linker;
 mod defaultbuild;
 mod build;
+#[cfg(test)]
+mod test;
 
 const SOURCE_DIRECTORY : &str = "./src";
 
@@ -32,7 +34,6 @@ fn main()
                 success(&build_config);
             }
         }
-        build_table.write();
     }
     else {
         success(&build_config);
