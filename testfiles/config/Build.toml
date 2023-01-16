@@ -1,0 +1,8 @@
+# Build.toml for clang
+
+[package]
+    name = "test_binary"
+    debug_build = true
+
+[compiler]
+    compiler = "clang"
