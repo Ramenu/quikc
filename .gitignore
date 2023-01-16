@@ -5,3 +5,4 @@
 /*.sh
 !build.sh
 /testdir
+/benchmark/buildinfo

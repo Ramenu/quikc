@@ -158,26 +158,47 @@ impl BuildTable
             return true;
         }
         else if self.any_dependencies_changed {
-            let recompile = AtomicBool::new(false);
             let dependencies = self.get_file_dependencies(compiler_name, &source_file_name);
-            // check if any dependencies have changed for the source file 
-            dependencies.par_iter().for_each(|dependency| {
-                // sometimes the compiler shows '\' for line breaks, so we need to ignore those
+            const LARGE_NUMBER_OF_FILES : usize = 50;
+
+            // Doing this in parallel can actually be significantly slower if there aren't a lot of
+            // dependencies so it important to check if it necessary
+            if dependencies.len() >= LARGE_NUMBER_OF_FILES {
+                let recompile = AtomicBool::new(false);
+                // check if any dependencies have changed for the source file 
+                dependencies.par_iter().for_each(|dependency| {
+                    // sometimes the compiler shows '\' for line breaks, so we need to ignore those
+                    if dependency != "\\" {
+                        let mut dependency_path = PathBuf::from(dependency);
+                        let source_metadata = dependency_path.metadata().expect("Failed to retrieve metadata from file");
+                        let duration = get_duration_since_modified(&source_metadata);
+                        if file_modified_since_last_build(&mut dependency_path, 
+                                                                dependency, 
+                                                                true,
+                                                                duration,
+                                                                    old_table) {
+                            recompile.store(true, Ordering::Relaxed);
+                            return;
+                        }
+                    }
+                });
+                return recompile.load(Ordering::Relaxed);
+            }
+
+            for dependency in dependencies {
                 if dependency != "\\" {
-                    let mut dependency_path = PathBuf::from(dependency);
+                    let mut dependency_path = PathBuf::from(&dependency);
                     let source_metadata = dependency_path.metadata().expect("Failed to retrieve metadata from file");
                     let duration = get_duration_since_modified(&source_metadata);
                     if file_modified_since_last_build(&mut dependency_path, 
-                                                            dependency, 
+                                                            &dependency, 
                                                             true,
                                                             duration,
                                                                 old_table) {
-                        recompile.store(true, Ordering::Relaxed);
-                        return;
+                        return true;
                     }
                 }
-            });
-            return recompile.load(Ordering::Relaxed);
+            }
         }
         return false;
 
