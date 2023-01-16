@@ -14,7 +14,13 @@ Note that quikc defaults to C17 for C source files and C++20 for C++ source file
 provide your own arguments to the compiler or linker then the default configuration settings will not be used. Also, if you provide a custom compiler
 that is unknown to quikc, the default configuration settings will not be used.
 
-I do not recommend using quikc in production environments, as it hasn't been thoroughly tested. So it is still in beta.
+> **Warning**<br>
+> I do not recommend using quikc in production environments, as it hasn't been thoroughly tested. The software is in beta. If you are already using
+> a different build system, please stick to it.<br>
+> <br>
+> For newer and smaller projects, quikc will work fine as long as you keep the source files in 'src' and dependencies in 'include'. Newer versions
+> will probably remove this restriction.
+
 
 ## Who is this for?
 
