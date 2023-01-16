@@ -15,6 +15,11 @@ struct Tools
     build_table : BuildTable
 }
 
+struct Settings
+{
+    use_clang : bool
+}
+
 impl Tools
 {
     pub fn new() -> Tools
@@ -71,7 +76,8 @@ fn get_src_files(tools : &mut Tools)
 /// This should be done if you want to check if quikc will recompile the source file after
 /// the error.
 fn initialize_project(setup_additional_files : bool, 
-                      with_invalid_file : bool) -> Result<(), Box<dyn std::error::Error>>
+                      with_invalid_file : bool,
+                      settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
 {
     const INVALID_FILE_NAME : &str = "invalid.c";
     let invalid_file = format!("{}/invalid/{}", TEST_FILES_DIR, INVALID_FILE_NAME);
@@ -85,6 +91,11 @@ fn initialize_project(setup_additional_files : bool,
                                      .spawn()?
                                      .wait()?;
     assert_eq!(status.success(), true);
+
+    if settings.use_clang {
+        let clang_build_toml = format!("{TEST_FILES_DIR}/config/{BUILD_CONFIG_FILE}");
+        fs::copy(clang_build_toml, BUILD_CONFIG_FILE)?;
+    }
 
     if setup_additional_files {
         let dir = fs::read_dir(TEST_FILES_DIR)?;
@@ -135,34 +146,40 @@ fn reset() -> Result<(), Box<dyn std::error::Error>>
 #[test]
 fn test_all() -> Result<(), Box<dyn std::error::Error>>
 {
-    test_quikc_init()?;
-    reset()?;
+    let mut settings = Settings{use_clang : false};
+    for _ in 0..2 {
+        test_quikc_init(&settings)?;
+        reset()?;
 
-    test_first_time_compilation()?;
-    reset()?;
+        test_first_time_compilation(&settings)?;
+        reset()?;
 
-    test_recompilation()?;
-    reset()?;
+        test_recompilation(&settings)?;
+        reset()?;
 
-    test_invalid_file_recompiles()?;
-    reset()?;
+        test_invalid_file_recompiles(&settings)?;
+        reset()?;
 
-    test_recompile_after_config_change()?;
-    reset()?;
+        test_recompile_after_config_change(&settings)?;
+        reset()?;
 
-    test_recompile_after_deletion()?;
+        test_recompile_after_deletion(&settings)?;
+        reset()?;
+
+        settings.use_clang = true;
+    }
 
     Ok(())
 }
 
-fn test_quikc_init() ->  Result<(), Box<dyn std::error::Error>>
+fn test_quikc_init(settings : &Settings) ->  Result<(), Box<dyn std::error::Error>>
 {
 
 
     // 'initialize_project' will create many source files, however the file generated
     // by the 'quikc-init' command is the only one we need to check for. The other ones
     // are for testing purposes only, which is why only 'source_file' is checked
-    initialize_project(false, false)?;
+    initialize_project(false, false, settings)?;
 
     let source_file = format!("{}/main.c", SOURCE_DIRECTORY);
 
@@ -175,9 +192,9 @@ fn test_quikc_init() ->  Result<(), Box<dyn std::error::Error>>
 }
 
 /// This will treat the project as if it needs to be rebuilt entirely.
-fn test_first_time_compilation() -> Result<(), Box<dyn std::error::Error>>
+fn test_first_time_compilation(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
 {
-    initialize_project(true, false)?;
+    initialize_project(true, false, settings)?;
     let mut tools = Tools::new();
     get_src_files(&mut tools);
 
@@ -196,9 +213,9 @@ fn test_first_time_compilation() -> Result<(), Box<dyn std::error::Error>>
 
 /// Will test if the files will recompile after being modified.
 /// This includes header files and source files.
-fn test_recompilation() -> Result<(), Box<dyn std::error::Error>>
+fn test_recompilation(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
 {
-    test_first_time_compilation()?; 
+    test_first_time_compilation(settings)?; 
 
     // note we introduce different scopes so the build table file is written to
     // once the build table has been dropped
@@ -245,10 +262,10 @@ fn test_recompilation() -> Result<(), Box<dyn std::error::Error>>
 
 /// Will test if 'quikc' knows to recompile a file again if it
 /// had an error.
-fn test_invalid_file_recompiles() -> Result<(), Box<dyn std::error::Error>>
+fn test_invalid_file_recompiles(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
 {
     {
-        initialize_project(true, true)?;
+        initialize_project(true, true, settings)?;
 
         // TOTAL_SOURCE_FILES + 1 because we added an invalid file
         const TOTAL_FILES : usize = TOTAL_SOURCE_FILES + 1;
@@ -278,9 +295,9 @@ fn test_invalid_file_recompiles() -> Result<(), Box<dyn std::error::Error>>
 }
 
 /// Tests if the entire project will recompile if the build config file has been changed.
-fn test_recompile_after_config_change() -> Result<(), Box<dyn std::error::Error>>
+fn test_recompile_after_config_change(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
 {
-    test_first_time_compilation()?;
+    test_first_time_compilation(settings)?;
 
     let build_config_file_new = format!("{}/{}", TEST_FILES_DIR, BUILD_CONFIG_FILE);
     fs::copy(build_config_file_new, BUILD_CONFIG_FILE)?;
@@ -302,10 +319,10 @@ fn test_recompile_after_config_change() -> Result<(), Box<dyn std::error::Error>
 }
 
 /// Tests if the entire project will recompile if a source file has been deleted.
-fn test_recompile_after_deletion() -> Result<(), Box<dyn std::error::Error>>
+fn test_recompile_after_deletion(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
 {
     const FILE_TO_BE_DELETED : &str = "dep.c";
-    test_first_time_compilation()?;
+    test_first_time_compilation(settings)?;
 
     fs::remove_file(get_source_file(FILE_TO_BE_DELETED))?;
     
