@@ -301,7 +301,7 @@ fn test_recompile_after_config_change() -> Result<(), Box<dyn std::error::Error>
     Ok(())
 }
 
-
+/// Tests if the entire project will recompile if a source file has been deleted.
 fn test_recompile_after_deletion() -> Result<(), Box<dyn std::error::Error>>
 {
     const FILE_TO_BE_DELETED : &str = "dep.c";
