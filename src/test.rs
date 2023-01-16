@@ -1,12 +1,11 @@
-use std::{process::Command, fs::{self, OpenOptions}, env, path::Path, io::{self, Write}, time::{SystemTime, UNIX_EPOCH}};
+use std::{process::Command, fs::{self}, env, path::Path, time::{SystemTime}};
 
-use color_print::cprintln;
-use filetime::{set_file_mtime, FileTime};
-use jwalk::WalkDir;
+use filetime::{set_file_mtime};
 
 use crate::{build::{BUILD_CONFIG_FILE, Build}, SOURCE_DIRECTORY, compiler::{INCLUDE_PATH, compile_to_object_files, is_c_source_file, is_cpp_source_file, is_header_file}, buildtable::{BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY, get_duration_since_modified}, walker, linker::link_files};
 
 const TOTAL_SOURCE_FILES : usize = 2;
+const TEST_FILES_DIR : &str = "../testfiles";
 
 struct Tools
 {
@@ -68,7 +67,6 @@ fn get_src_files(tools : &mut Tools)
 fn initialize_project(setup_additional_files : bool, 
                       with_invalid_file : bool) -> Result<(), Box<dyn std::error::Error>>
 {
-    const TEST_FILES_DIR : &str = "../testfiles";
     const INVALID_FILE_NAME : &str = "invalid.c";
     let invalid_file = format!("{}/invalid/{}", TEST_FILES_DIR, INVALID_FILE_NAME);
 
@@ -141,6 +139,9 @@ fn test_all() -> Result<(), Box<dyn std::error::Error>>
     reset()?;
 
     test_invalid_file_recompiles()?;
+    reset()?;
+
+    test_recompile_after_config_change()?;
 
     Ok(())
 }
@@ -240,15 +241,21 @@ fn test_invalid_file_recompiles() -> Result<(), Box<dyn std::error::Error>>
     {
         initialize_project(true, true)?;
 
+        // TOTAL_SOURCE_FILES + 1 because we added an invalid file
+        const TOTAL_FILES : usize = TOTAL_SOURCE_FILES + 1;
+
         let mut tools = Tools::new();
         get_src_files(&mut tools);
 
-        // TOTAL_SOURCE_FILES + 1 because we added an invalid file
-        assert_eq!(tools.source_files.len(), TOTAL_SOURCE_FILES + 1);
+        assert_eq!(tools.source_files.len(), TOTAL_FILES);
         let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
 
         // Compilation should have failed since the invalid file has a error in it
         assert_eq!(compilation_success, false); 
+
+        // There should only be 'TOTAL_FILES - 1' object files since the invalid file
+        // did not compile successfully
+        assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_FILES - 1);
     }
 
     // Now we compile again
@@ -257,6 +264,30 @@ fn test_invalid_file_recompiles() -> Result<(), Box<dyn std::error::Error>>
 
     // The invalid file should have been the only file that needed to be recompiled
     assert_eq!(tools.source_files.len(), 1);
+
+    Ok(())
+}
+
+/// Tests if the entire project will recompile if the build config file has been changed.
+fn test_recompile_after_config_change() -> Result<(), Box<dyn std::error::Error>>
+{
+    test_first_time_compilation()?;
+
+    let build_config_file_new = format!("{}/{}", TEST_FILES_DIR, BUILD_CONFIG_FILE);
+    fs::copy(build_config_file_new, BUILD_CONFIG_FILE)?;
+
+    let mut tools = Tools::new();
+    get_src_files(&mut tools);
+
+    // All of the source files should be recompiled since the build config file has been changed
+    assert_eq!(tools.source_files.len(), TOTAL_SOURCE_FILES);
+    let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
+
+    assert_eq!(compilation_success, true);
+    assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_SOURCE_FILES);
+
+    let link_success = link_files(&tools.build_config);
+    assert_eq!(link_success, true);
 
     Ok(())
 }
