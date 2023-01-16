@@ -15,7 +15,7 @@ provide your own arguments to the compiler or linker then the default configurat
 that is unknown to quikc, the default configuration settings will not be used.
 
 > **Warning**<br>
-> I do not recommend using quikc in production environments, as it hasn't been thoroughly tested. The software is in beta. If you are already using
+> I do not recommend using quikc in production environments as it hasn't been thoroughly tested. The software is in beta. If you are already using
 > a different build system, please stick to it.<br>
 > <br>
 > For newer and smaller projects, quikc will work fine as long as you keep the source files in 'src' and dependencies in 'include'. Newer versions
