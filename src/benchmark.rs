@@ -1,11 +1,11 @@
-use std::{time::Instant, env, path::Path, fs::{File, self}, io::Write};
+use std::{time::Instant, env, path::{Path, PathBuf}, fs::{File, self}, io::Write, collections::HashMap};
 
 use color_print::cprintln;
 use once_cell::sync::Lazy;
 
-use crate::{build::Build, walker, SOURCE_DIRECTORY, buildtable::{self, BUILD_TABLE_DIRECTORY, BuildTable}, compiler, test::{initialize_project, Settings, Tools, modify_file_time}};
+use crate::{build::Build, walker, SOURCE_DIRECTORY, buildtable::{self, BUILD_TABLE_DIRECTORY, BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY}, compiler, test::{initialize_project, Settings, Tools, modify_file_time}};
 
-const SAMPLES : usize = 10000;
+const SAMPLES : usize = 3;
 const BENCHMARK_LOG_FILE_PATH : &str = "../benchmark.log";
 const OLD_LOG_FILE_PATH : &str = "../old-benchmark.log";
 const LOG_DIRECTORY : &str = "../logs";
@@ -65,8 +65,8 @@ fn reset() -> Result<(), Box<dyn std::error::Error>>
 
 fn compare_benchmarks(file_name : &str) -> Result<(), Box<dyn std::error::Error>>
 {
-    let mean_reg = regex::Regex::new(r"\(\d+\) ((?:(?:\s|\w+)+|\s) 'mean'): ((?:\d|\.)+) milliseconds")?;
-    let std_reg = regex::Regex::new(r"\(\d+\) ((?:(?:\s|\w+)+|\s) 'std'): ((?:\d|\.)+)")?;
+    let mean_reg = regex::Regex::new(r"\(\d+\) ((?:(?:\s|\w+|\W)+|\s) 'mean'): ((?:\d|\.)+) milliseconds")?;
+    let std_reg = regex::Regex::new(r"\(\d+\) ((?:(?:\s|\w+|\W)+|\s) 'std'): ((?:\d|\.)+)")?;
 
     let old_log_file_as_str = fs::read_to_string(if file_name == "latest" { OLD_LOG_FILE_PATH } else { file_name })?;
     let new_log_file_as_str = fs::read_to_string(BENCHMARK_LOG_FILE_PATH)?;
@@ -161,7 +161,7 @@ fn quikc_benchmark() -> Result<(), Box<dyn std::error::Error>>
     reset()?;
 
     benchmark_fn("time to initialize build configuration", &mut || {Build::new();});
-    benchmark_fn("time to initialize build table", &mut || {BuildTable::new(&mut toml::value::Table::new());});
+    benchmark_fn("time to initialize build table", &mut || {BuildTable::new(&mut HashMap::new());});
 
     // Benchmark first time retrieving source file speed
     {
@@ -175,13 +175,33 @@ fn quikc_benchmark() -> Result<(), Box<dyn std::error::Error>>
 
     // Benchmark retrieving source files speed when a dependency has changed
     {
-        let mut tools = Tools::new();
         modify_file_time("./include/mcvk/device.hpp")?;
+        // Since we didn't actually compile any files, just make a fake object file so that the program
+        // will actually behave as intended
+        File::create(format!("{}/{}", BUILD_TABLE_OBJECT_FILE_DIRECTORY, "device.o"))?;
+        let mut tools = Tools::new();
         benchmark_fn("time to retrieve source files on header file change",&mut ||walker::retrieve_source_files(SOURCE_DIRECTORY, 
                                 &mut tools.source_files, 
                                 &tools.build_config.get_compiler_name(), 
                                 &mut tools.build_table,
                                 &mut tools.old_table));
+    }
+
+    {
+        let mut tools = Tools::new();
+        benchmark_fn("time to check if a file needs to be recompiled", &mut || {
+            tools.build_table.needs_to_be_recompiled(&mut PathBuf::from("./src/device.cpp"), 
+                                                     &tools.build_config.get_compiler_name(), 
+                                                     &tools.old_table);
+        });
+    }
+
+    {
+        let tools = Tools::new();
+        benchmark_fn("time to check for a file's dependencies", &mut || {
+            tools.build_table.get_file_dependencies(&tools.build_config.get_compiler_name(), 
+                                                 "./src/device.cpp");
+        });
     }
 
     compare_benchmarks("latest")?;
