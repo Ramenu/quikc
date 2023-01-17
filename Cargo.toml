@@ -12,6 +12,7 @@ debug-assertions = false
 lto = true
 panic = "abort"
 strip = "symbols"
+codegen-units = 1
 
 [dependencies]
 rayon = "1.6"
