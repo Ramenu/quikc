@@ -1,7 +1,7 @@
 use std::{path::{PathBuf, Path}, fs::{File, self, Metadata}, time::UNIX_EPOCH, process::{Command}, sync::{atomic::{AtomicBool, Ordering}}, collections::HashSet};
 
-use jwalk::WalkDir;
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator, ParallelBridge};
+use walkdir::WalkDir;
 
 use crate::{compiler::{self, INCLUDE_PATH_FLAG, INCLUDE_PATH}};
 
@@ -79,7 +79,7 @@ impl BuildTable
         *old_table = table.clone();
 
         for path in WalkDir::new(INCLUDE_PATH) {
-            let mut path = path.unwrap().path();
+            let mut path = path.unwrap().path().to_path_buf();
             let path_str = path.to_str().unwrap().to_string();
 
             let is_header_file = compiler::is_header_file(&path_str);

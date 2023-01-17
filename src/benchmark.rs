@@ -13,7 +13,6 @@ fn print_benchmark_results(task_msg : &str, mean : f64, std : f64)
 }
 
 fn benchmark_fn<T>(task_msg : &str, f : &mut T) 
-    //where T : FnMut() -> Result<(), Box<dyn std::error::Error>>
     where T : FnMut() -> ()
 {
     let mut v = Vec::new();
@@ -52,7 +51,6 @@ fn quikc_benchmark() -> Result<(), Box<dyn std::error::Error>>
 
     benchmark_fn("time to initialize build configuration", &mut || {Build::new();});
     benchmark_fn("time to initialize build table", &mut || {BuildTable::new(&mut toml::value::Table::new());});
-
 
     // Benchmark first time retrieving source file speed
     {
