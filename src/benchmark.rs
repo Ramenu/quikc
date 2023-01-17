@@ -11,8 +11,6 @@ const OLD_LOG_FILE_PATH : &str = "../old-benchmark.log";
 const LOG_DIRECTORY : &str = "../logs";
 
 static mut BENCHMARK_LOG_FILE : once_cell::sync::Lazy<File> = Lazy::new(|| {
-    let regex = regex::Regex::new(r"old-benchmark(\d+)\.log").unwrap();
-
     let benchmark_log_file_exists = Path::new(BENCHMARK_LOG_FILE_PATH).is_file();
     if benchmark_log_file_exists {
         fs::copy(BENCHMARK_LOG_FILE_PATH, OLD_LOG_FILE_PATH).expect("Failed to copy from log to old log file");
