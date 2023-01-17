@@ -38,7 +38,7 @@ fn main()
         return;
     }
     // Check if the binary exists, if not we need to relink
-    if Path::new(&build_config.get_package_name()).is_file() {
+    if !Path::new(&build_config.get_package_name()).is_file() {
         link(&build_config);
         return;
     }
