@@ -19,7 +19,7 @@ color-print = "0.3.4"
 toml = "0.5.10"
 serde = "1.0"
 serde_derive = "1.0"
-jwalk = "0.1.0"
+walkdir = "2.3.2"
 
 [dev-dependencies]
 filetime = "0.2.19"
