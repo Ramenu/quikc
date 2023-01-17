@@ -19,7 +19,7 @@ static mut BENCHMARK_LOG_FILE : once_cell::sync::Lazy<File> = Lazy::new(|| {
 fn print_benchmark_results(task_msg : &str, mean : f64, std : f64)
 {
     unsafe {
-        BENCHMARK_LOG_FILE.write(format!("({}) {} 'mean': {} nanoseconds\n", SAMPLES, task_msg, mean).as_bytes()).unwrap();
+        BENCHMARK_LOG_FILE.write(format!("({}) {} 'mean': {} milliseconds\n", SAMPLES, task_msg, mean).as_bytes()).unwrap();
         BENCHMARK_LOG_FILE.write(format!("({}) {} 'std': {:.5}\n\n", SAMPLES, task_msg, std).as_bytes()).unwrap();
     }
 }
@@ -32,12 +32,12 @@ fn benchmark_fn<T>(task_msg : &str, f : &mut T)
     for _ in 0..SAMPLES {
         let start = Instant::now();
         f();
-        let duration = start.elapsed().as_nanos() as f64;
+        let duration = start.elapsed().as_millis() as f64;
         v.push(duration);
     }
 
     let mean = statistical::mean(v.as_slice());
-    let std = statistical::standard_deviation(v.as_slice(), Some(mean)) / 1000.0;
+    let std = statistical::standard_deviation(v.as_slice(), Some(mean));
 
     print_benchmark_results(task_msg, mean, std);
 }
@@ -52,7 +52,7 @@ fn reset() -> Result<(), Box<dyn std::error::Error>>
 
 fn compare_benchmarks() -> Result<(), Box<dyn std::error::Error>>
 {
-    let mean_reg = regex::Regex::new(r"\(\d+\) ((?:(?:\s|\w+)+|\s) 'mean'): ((?:\d|\.)+) nanoseconds")?;
+    let mean_reg = regex::Regex::new(r"\(\d+\) ((?:(?:\s|\w+)+|\s) 'mean'): ((?:\d|\.)+) milliseconds")?;
     let std_reg = regex::Regex::new(r"\(\d+\) ((?:(?:\s|\w+)+|\s) 'std'): ((?:\d|\.)+)")?;
 
     let old_log_file_as_str = fs::read_to_string(OLD_LOG_FILE_PATH)?;
@@ -114,7 +114,7 @@ fn compare_benchmarks() -> Result<(), Box<dyn std::error::Error>>
             let mean_diff = mean - old_mean;
             let std_diff = std - old_std;
 
-            print_diff(task_msg_mean, mean_diff, "nanoseconds");
+            print_diff(task_msg_mean, mean_diff, "ms");
             print_diff(task_msg_std, std_diff, "");
             println!("");
             
@@ -127,13 +127,13 @@ fn compare_benchmarks() -> Result<(), Box<dyn std::error::Error>>
 fn print_diff(msg : &str, diff : f64, unit : &str)
 {
     if diff > 0.0 {
-        cprintln!("<bold>{}: <red>+{:.3}</red> {}</bold>", msg, diff, unit);
+        cprintln!("<bold>{}: <red>+{:.3}{}</red></bold>", msg, diff, unit);
     }
     else if diff < 0.0 {
-        cprintln!("<bold>{}: <green>{:.3}</green> {}</bold>", msg, diff, unit);
+        cprintln!("<bold>{}: <green>{:.3}{}</green></bold>", msg, diff, unit);
     }
     else {
-        cprintln!("<bold>{}: <yellow>{:.3}</yellow> {}</bold>", msg, diff, unit);
+        cprintln!("<bold>{}: <yellow>{:.3}{}</yellow></bold>", msg, diff, unit);
     }
 }
 
