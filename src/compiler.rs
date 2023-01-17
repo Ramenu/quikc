@@ -1,9 +1,10 @@
-use std::{path::PathBuf, sync::atomic::AtomicBool, process::Command, io::ErrorKind};
+use std::{path::PathBuf, sync::atomic::AtomicBool, process::{Command, Stdio}, io::ErrorKind, os::{unix::thread, fd::{FromRawFd, IntoRawFd}}, fs::File};
 use color_print::{cprintln, cformat};
 use rayon::prelude::*;
 use std::path::Path;
+use std::thread::spawn;
 
-use crate::{buildtable::{BUILD_TABLE_OBJECT_FILE_DIRECTORY}, build::{Build}};
+use crate::{buildtable::{BUILD_TABLE_OBJECT_FILE_DIRECTORY, BUILD_TABLE_DEPS_DIRECTORY}, build::{Build}};
 
 pub const INCLUDE_PATH_FLAG : &str = "-I./include";
 pub const INCLUDE_PATH : &str = "./include";
@@ -95,7 +96,21 @@ pub fn compile_to_object_files(source_files : &Vec<String>,
 
         let mut out_file_path = PathBuf::from(file);
         let out = to_output_file(&mut out_file_path, BUILD_TABLE_OBJECT_FILE_DIRECTORY, "o");
+        let dep_name = to_output_file(&mut out_file_path, BUILD_TABLE_DEPS_DIRECTORY, "d");
 
+        let dep_file = File::create(&dep_name).expect("Failed to create dependency file");
+        #[cfg(unix)]
+            Command::new(build_info.get_compiler_name())
+                    .args([INCLUDE_PATH_FLAG, file, "-MM"])
+                    .stdout(unsafe { Stdio::from_raw_fd(dep_file.into_raw_fd())})
+                    .spawn()
+                    .expect("Failed to spawn process");
+        #[cfg(windows)]
+            Command::new(build_info.get_compiler_name())
+                    .args([INCLUDE_PATH_FLAG, file, "-MM"])
+                    .stdout(unsafe { Stdio::from_raw_handle(dep_file.into_raw_handle())})
+                    .spawn()
+                    .expect("Failed to spawn process");
         
         let output = build_info.execute_compiler_with_build_info(file)
                                        .arg(INCLUDE_PATH_FLAG)
