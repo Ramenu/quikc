@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use build::Build;
 use color_print::cprintln;
 
@@ -31,16 +33,25 @@ fn main()
         let compilation_successful = compiler::compile_to_object_files(&mut source_files, &build_config);
 
         if compilation_successful {
-            let link_successful = linker::link_files(&build_config);
-            if link_successful {
-                success(&build_config);
-            }
+            link(&build_config);
         }
+        return;
     }
-    else {
+    // Check if the binary exists, if not we need to relink
+    if Path::new(&build_config.get_package_name()).is_file() {
+        link(&build_config);
+        return;
+    }
+    success(&build_config);
+
+}
+
+fn link(build_config : &Build)
+{
+    let link_successful = linker::link_files(&build_config);
+    if link_successful {
         success(&build_config);
     }
-
 }
 
 fn success(build_config : &Build)

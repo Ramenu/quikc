@@ -6,6 +6,7 @@ use crate::{build::{BUILD_CONFIG_FILE, Build}, SOURCE_DIRECTORY, compiler::{INCL
 
 const TOTAL_SOURCE_FILES : usize = 3;
 const TEST_FILES_DIR : &str = "../testfiles";
+const TEST_PACKAGE_NAME : &str = "test_binary";
 
 pub struct Tools
 {
@@ -84,7 +85,6 @@ pub fn initialize_project(setup_additional_files : bool,
 
     to_test_directory()?;
 
-    const TEST_PACKAGE_NAME : &str = "test_binary";
     let status = Command::new("python")
                                      .arg("../quikc-init")
                                      .arg(TEST_PACKAGE_NAME)
@@ -164,6 +164,9 @@ fn test_all() -> Result<(), Box<dyn std::error::Error>>
         reset()?;
 
         test_recompile_after_deletion(&settings)?;
+        reset()?;
+
+        test_recompilation_after_deleting_binary(&settings)?;
         reset()?;
 
         settings.use_clang = true;
@@ -344,6 +347,24 @@ fn test_recompile_after_deletion(settings : &Settings) -> Result<(), Box<dyn std
         assert_eq!(link_success, true);
 
     }
+
+    Ok(())
+}
+
+fn test_recompilation_after_deleting_binary(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
+{
+    test_first_time_compilation(settings)?;
+
+    fs::remove_file(TEST_PACKAGE_NAME)?;
+
+    let mut tools = Tools::new();
+    get_src_files(&mut tools);
+
+    assert_eq!(tools.source_files.len(), 0);
+    assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_SOURCE_FILES);
+
+    let link_success = link_files(&tools.build_config);
+    assert_eq!(link_success, true);
 
     Ok(())
 }
