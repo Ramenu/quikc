@@ -5,13 +5,28 @@ use once_cell::sync::Lazy;
 
 use crate::{build::Build, walker, SOURCE_DIRECTORY, buildtable::{self, BUILD_TABLE_DIRECTORY, BuildTable}, compiler, test::{initialize_project, Settings, Tools, modify_file_time}};
 
-const SAMPLES : usize = 1000;
+const SAMPLES : usize = 10000;
 const BENCHMARK_LOG_FILE_PATH : &str = "../benchmark.log";
 const OLD_LOG_FILE_PATH : &str = "../old-benchmark.log";
+const LOG_DIRECTORY : &str = "../logs";
 
 static mut BENCHMARK_LOG_FILE : once_cell::sync::Lazy<File> = Lazy::new(|| {
-    if Path::new(BENCHMARK_LOG_FILE_PATH).is_file() {
+    let regex = regex::Regex::new(r"old-benchmark(\d+)\.log").unwrap();
+
+    let benchmark_log_file_exists = Path::new(BENCHMARK_LOG_FILE_PATH).is_file();
+    if benchmark_log_file_exists {
         fs::copy(BENCHMARK_LOG_FILE_PATH, OLD_LOG_FILE_PATH).expect("Failed to copy from log to old log file");
+    }
+
+    if !Path::new(LOG_DIRECTORY).is_dir() {
+        fs::create_dir(LOG_DIRECTORY).expect("Failed to create log directory");
+    }
+
+    let paths = fs::read_dir(LOG_DIRECTORY).expect("Failed to read log directory");
+    let hi = paths.count() + 1;
+    
+    if benchmark_log_file_exists {
+        fs::copy(BENCHMARK_LOG_FILE_PATH, format!("{}/old-benchmark{}.log", LOG_DIRECTORY, hi)).unwrap();
     }
     return File::create(BENCHMARK_LOG_FILE_PATH).expect("Failed to create/open benchmark log file");
 });
@@ -50,12 +65,12 @@ fn reset() -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
-fn compare_benchmarks() -> Result<(), Box<dyn std::error::Error>>
+fn compare_benchmarks(file_name : &str) -> Result<(), Box<dyn std::error::Error>>
 {
     let mean_reg = regex::Regex::new(r"\(\d+\) ((?:(?:\s|\w+)+|\s) 'mean'): ((?:\d|\.)+) milliseconds")?;
     let std_reg = regex::Regex::new(r"\(\d+\) ((?:(?:\s|\w+)+|\s) 'std'): ((?:\d|\.)+)")?;
 
-    let old_log_file_as_str = fs::read_to_string(OLD_LOG_FILE_PATH)?;
+    let old_log_file_as_str = fs::read_to_string(if file_name == "latest" { OLD_LOG_FILE_PATH } else { file_name })?;
     let new_log_file_as_str = fs::read_to_string(BENCHMARK_LOG_FILE_PATH)?;
 
     let mut old_log = old_log_file_as_str.lines();
@@ -171,7 +186,7 @@ fn quikc_benchmark() -> Result<(), Box<dyn std::error::Error>>
                                 &mut tools.old_table));
     }
 
-    compare_benchmarks()?;
+    compare_benchmarks("latest")?;
 
     Ok(())
 }

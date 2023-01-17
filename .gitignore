@@ -8,4 +8,5 @@
 /benchmark/buildinfo
 !test.sh
 !benchmark.sh
+/logs
 /*.log
