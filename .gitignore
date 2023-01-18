@@ -6,3 +6,8 @@
 !build.sh
 /testdir
 /testfiles
+/benchmark/buildinfo
+!test.sh
+!benchmark.sh
+/logs
+/*.log

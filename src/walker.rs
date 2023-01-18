@@ -1,4 +1,4 @@
-use std::{fs::{self}, path::Path};
+use std::{fs::{self}, path::Path, collections::HashMap};
 
 use color_print::cformat;
 
@@ -51,13 +51,13 @@ fn source_dependency_missing(dir : &str, build_table : &mut BuildTable) -> bool
 /// Retrieves the source files that need to be compiled
 pub fn retrieve_source_files(dir: &str, 
                              source_files: &mut Vec<String>, 
-                             compiler_name : &str, 
                              build_table : &mut BuildTable,
-                             old_table : &mut toml::value::Table) 
+                             old_table : &mut HashMap<String, u64>) 
 {
     let mut has_source_file = false;
     let paths = fs::read_dir(dir).expect("Failed to read from directory");
     let source_dependency_missing = source_dependency_missing(dir, build_table);
+    let mut source_file_needs_to_be_recompiled = false;
     
     // only append the c/c++ files that need to be recompiled into the vector
     for path in paths {
@@ -67,10 +67,15 @@ pub fn retrieve_source_files(dir: &str,
             has_source_file = true;
 
             if source_dependency_missing ||
-               build_table.needs_to_be_recompiled(&mut retrieved_path, compiler_name, &old_table) {
+               build_table.needs_to_be_recompiled(&mut retrieved_path, &old_table) {
+                source_file_needs_to_be_recompiled = true;
                 source_files.push(path_str);
             }
         }
+    }
+
+    if source_file_needs_to_be_recompiled {
+        build_table.set_any_dependencies_changed(true);
     }
 
     // If no source files were found, print an error and terminate the program as there is nothing

@@ -1,4 +1,4 @@
-use std::{process::Command, fs::{self}, env, path::Path, time::{SystemTime}};
+use std::{process::Command, fs::{self}, env, path::Path, time::{SystemTime}, collections::HashMap};
 
 use filetime::{set_file_mtime};
 
@@ -6,18 +6,19 @@ use crate::{build::{BUILD_CONFIG_FILE, Build}, SOURCE_DIRECTORY, compiler::{INCL
 
 const TOTAL_SOURCE_FILES : usize = 3;
 const TEST_FILES_DIR : &str = "../testfiles";
+const TEST_PACKAGE_NAME : &str = "test_binary";
 
-struct Tools
+pub struct Tools
 {
-    build_config : Build,
-    source_files : Vec<String>,
-    old_table : toml::value::Table,
-    build_table : BuildTable
+    pub build_config : Build,
+    pub source_files : Vec<String>,
+    pub old_table : HashMap<String, u64>,
+    pub build_table : BuildTable
 }
 
-struct Settings
+pub struct Settings
 {
-    use_clang : bool
+    pub use_clang : bool
 }
 
 impl Tools
@@ -25,7 +26,7 @@ impl Tools
     pub fn new() -> Tools
     {
         let build_config = Build::new();
-        let mut old_table = toml::value::Table::new();
+        let mut old_table = HashMap::new();
         let source_files = Vec::new();
         let build_table = BuildTable::new(&mut old_table);
 
@@ -46,7 +47,7 @@ fn get_source_file(file_name : &str) -> String
 
 /// This function doesn't literally modify the file, but it
 /// does change the time it was modified
-fn modify_file_time(file : &str) -> Result<(), Box<dyn std::error::Error>>
+pub fn modify_file_time(file : &str) -> Result<(), Box<dyn std::error::Error>>
 {
     let time = get_duration_since_modified(&fs::metadata(file)?);
     set_file_mtime(file, SystemTime::now().into())?;
@@ -64,7 +65,6 @@ fn get_src_files(tools : &mut Tools)
 {
     walker::retrieve_source_files(SOURCE_DIRECTORY, 
                                   &mut tools.source_files, 
-                                  &tools.build_config.get_compiler_name(), 
                                   &mut tools.build_table,
                                   &mut tools.old_table);
     
@@ -75,7 +75,7 @@ fn get_src_files(tools : &mut Tools)
 /// parameter is set to true, then the function will copy an invalid source file to 'src'.
 /// This should be done if you want to check if quikc will recompile the source file after
 /// the error.
-fn initialize_project(setup_additional_files : bool, 
+pub fn initialize_project(setup_additional_files : bool, 
                       with_invalid_file : bool,
                       settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
 {
@@ -84,7 +84,6 @@ fn initialize_project(setup_additional_files : bool,
 
     to_test_directory()?;
 
-    const TEST_PACKAGE_NAME : &str = "test_binary";
     let status = Command::new("python")
                                      .arg("../quikc-init")
                                      .arg(TEST_PACKAGE_NAME)
@@ -164,6 +163,9 @@ fn test_all() -> Result<(), Box<dyn std::error::Error>>
         reset()?;
 
         test_recompile_after_deletion(&settings)?;
+        reset()?;
+
+        test_recompilation_after_deleting_binary(&settings)?;
         reset()?;
 
         settings.use_clang = true;
@@ -246,8 +248,8 @@ fn test_recompilation(settings : &Settings) -> Result<(), Box<dyn std::error::Er
         let mut tools = Tools::new();
         get_src_files(&mut tools);
 
-        // 3 source files depend on the header
-        assert_eq!(tools.source_files.len(), 3);
+        // 2 source files depend on the header
+        assert_eq!(tools.source_files.len(), 2);
 
         let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
         assert_eq!(compilation_success, true);
@@ -344,6 +346,24 @@ fn test_recompile_after_deletion(settings : &Settings) -> Result<(), Box<dyn std
         assert_eq!(link_success, true);
 
     }
+
+    Ok(())
+}
+
+fn test_recompilation_after_deleting_binary(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
+{
+    test_first_time_compilation(settings)?;
+
+    fs::remove_file(TEST_PACKAGE_NAME)?;
+
+    let mut tools = Tools::new();
+    get_src_files(&mut tools);
+
+    assert_eq!(tools.source_files.len(), 0);
+    assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_SOURCE_FILES);
+
+    let link_success = link_files(&tools.build_config);
+    assert_eq!(link_success, true);
 
     Ok(())
 }

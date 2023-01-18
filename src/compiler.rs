@@ -1,9 +1,9 @@
-use std::{path::PathBuf, sync::atomic::AtomicBool, process::Command, io::ErrorKind};
+use std::{path::PathBuf, sync::atomic::AtomicBool, process::{Command}, io::ErrorKind};
 use color_print::{cprintln, cformat};
 use rayon::prelude::*;
 use std::path::Path;
 
-use crate::{buildtable::{BUILD_TABLE_OBJECT_FILE_DIRECTORY}, build::{Build}};
+use crate::{buildtable::{BUILD_TABLE_OBJECT_FILE_DIRECTORY, BUILD_TABLE_DEPS_DIRECTORY}, build::{Build}};
 
 pub const INCLUDE_PATH_FLAG : &str = "-I./include";
 pub const INCLUDE_PATH : &str = "./include";
@@ -95,14 +95,15 @@ pub fn compile_to_object_files(source_files : &Vec<String>,
 
         let mut out_file_path = PathBuf::from(file);
         let out = to_output_file(&mut out_file_path, BUILD_TABLE_OBJECT_FILE_DIRECTORY, "o");
+        let dep_name = to_output_file(&mut out_file_path, BUILD_TABLE_DEPS_DIRECTORY, "d");
 
+        Command::new(build_info.get_compiler_name())
+                .args([INCLUDE_PATH_FLAG, file, "-MM", "-o", &dep_name])
+                .spawn()
+                .expect("Failed to spawn process");
         
         let output = build_info.execute_compiler_with_build_info(file)
-                                       .arg(INCLUDE_PATH_FLAG)
-                                       .arg(file)
-                                       .arg("-c")
-                                       .arg("-o")
-                                       .arg(&out)
+                                       .args([INCLUDE_PATH_FLAG, file, "-c", "-o", &out])
                                        .output()
                                        .expect("Failed to execute process");
         
