@@ -3,7 +3,7 @@ use std::{time::Instant, env, path::{Path, PathBuf}, fs::{File, self}, io::Write
 use color_print::cprintln;
 use once_cell::sync::Lazy;
 
-use crate::{build::Build, walker, SOURCE_DIRECTORY, buildtable::{self, BUILD_TABLE_DIRECTORY, BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY}, compiler, test::{initialize_project, Settings, Tools, modify_file_time}};
+use crate::{build::Build, walker, SOURCE_DIRECTORY, buildtable::{self, BUILD_TABLE_DIRECTORY, BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY, BUILD_TABLE_FILE}, compiler, test::{initialize_project, Settings, Tools, modify_file_time}};
 
 const SAMPLES : usize = 3;
 const BENCHMARK_LOG_FILE_PATH : &str = "../benchmark.log";
@@ -57,8 +57,11 @@ fn benchmark_fn<T>(task_msg : &str, f : &mut T)
 
 fn reset() -> Result<(), Box<dyn std::error::Error>>
 {
+    // Do not delete everything as the dependencies directory can't be regenerated unless
+    // running the compiler (not recommended)
     if Path::new(BUILD_TABLE_DIRECTORY).exists() {
-        std::fs::remove_dir_all(BUILD_TABLE_DIRECTORY)?;
+        std::fs::remove_dir_all(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?;
+        std::fs::remove_file(BUILD_TABLE_FILE)?;
     }
     Ok(())
 }
@@ -191,7 +194,6 @@ fn quikc_benchmark() -> Result<(), Box<dyn std::error::Error>>
         let mut tools = Tools::new();
         benchmark_fn("time to check if a file needs to be recompiled", &mut || {
             tools.build_table.needs_to_be_recompiled(&mut PathBuf::from("./src/device.cpp"), 
-                                                     &tools.build_config.get_compiler_name(), 
                                                      &tools.old_table);
         });
     }
@@ -199,8 +201,7 @@ fn quikc_benchmark() -> Result<(), Box<dyn std::error::Error>>
     {
         let tools = Tools::new();
         benchmark_fn("time to check for a file's dependencies", &mut || {
-            tools.build_table.get_file_dependencies(&tools.build_config.get_compiler_name(), 
-                                                 "./src/device.cpp");
+            tools.build_table.get_file_dependencies(&tools.build_config.get_compiler_name());
         });
     }
 
