@@ -1,4 +1,4 @@
-use std::{process::Command, fs::{self}, env, path::Path, time::{SystemTime}};
+use std::{process::Command, fs::{self}, env, path::Path, time::{SystemTime}, collections::HashMap};
 
 use filetime::{set_file_mtime};
 
@@ -12,7 +12,7 @@ pub struct Tools
 {
     pub build_config : Build,
     pub source_files : Vec<String>,
-    pub old_table : toml::value::Table,
+    pub old_table : HashMap<String, u64>,
     pub build_table : BuildTable
 }
 
@@ -26,7 +26,7 @@ impl Tools
     pub fn new() -> Tools
     {
         let build_config = Build::new();
-        let mut old_table = toml::value::Table::new();
+        let mut old_table = HashMap::new();
         let source_files = Vec::new();
         let build_table = BuildTable::new(&mut old_table);
 
@@ -249,8 +249,8 @@ fn test_recompilation(settings : &Settings) -> Result<(), Box<dyn std::error::Er
         let mut tools = Tools::new();
         get_src_files(&mut tools);
 
-        // 3 source files depend on the header
-        assert_eq!(tools.source_files.len(), 3);
+        // 2 source files depend on the header
+        assert_eq!(tools.source_files.len(), 2);
 
         let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
         assert_eq!(compilation_success, true);
