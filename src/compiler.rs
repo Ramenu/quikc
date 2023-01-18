@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::atomic::AtomicBool, process::{Command}, io::ErrorKind};
+use std::{path::PathBuf, process::{Command}, io::ErrorKind};
 use color_print::{cprintln, cformat};
 use rayon::prelude::*;
 use std::path::Path;
