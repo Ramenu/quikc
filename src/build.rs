@@ -2,7 +2,7 @@ use std::{fs::{self}, process::Command, path::Path};
 use color_print::{cprintln, cformat};
 use serde_derive::Deserialize;
 
-use crate::{defaultbuild::{GCC_COMPILER_NONEXCLUSIVE_WARNINGS, GCC_COMPILER_C_EXCLUSIVE_WARNINGS, GCC_COMPILER_CPP_DIALECT_OPTIONS, GCC_COMPILER_CPP_EXCLUSIVE_WARNINGS, GCC_STATIC_ANALYSIS_OPTIONS, GCC_AND_CLANG_DIALECT_OPTIONS, CLANG_COMPILER_NONEXCLUSIVE_WARNINGS, CLANG_COMPILER_CPP_WARNINGS, GCC_AND_CLANG_OPTIMIZATION_OPTIONS, GCC_AND_CLANG_ENHANCED_OPTIMIZATION_OPTIONS, GCC_AND_CLANG_LINKER_OPTIONS, GCC_AND_CLANG_CPP_DIALECT_OPTIONS}, compiler::{self, use_default_compiler_configuration, select_default_compiler}, buildtable::{BUILD_TABLE_OBJECT_FILE_DIRECTORY, BUILD_TABLE_DIRECTORY, BUILD_TABLE_FILE}, linker};
+use crate::{defaultbuild::{GCC_COMPILER_NONEXCLUSIVE_WARNINGS, GCC_COMPILER_C_EXCLUSIVE_WARNINGS, GCC_COMPILER_CPP_DIALECT_OPTIONS, GCC_COMPILER_CPP_EXCLUSIVE_WARNINGS, GCC_STATIC_ANALYSIS_OPTIONS, GCC_AND_CLANG_DIALECT_OPTIONS, CLANG_COMPILER_NONEXCLUSIVE_WARNINGS, CLANG_COMPILER_CPP_WARNINGS, GCC_AND_CLANG_OPTIMIZATION_OPTIONS, GCC_AND_CLANG_ENHANCED_OPTIMIZATION_OPTIONS, GCC_AND_CLANG_LINKER_OPTIONS, GCC_AND_CLANG_CPP_DIALECT_OPTIONS}, compiler::{self, use_default_compiler_configuration, select_default_compiler, INCLUDE_PATH}, buildtable::{BUILD_TABLE_OBJECT_FILE_DIRECTORY, BUILD_TABLE_DIRECTORY, BUILD_TABLE_FILE}, linker, SOURCE_DIRECTORY};
 
 pub const BUILD_CONFIG_FILE : &str = "./Build.toml";
 pub const BUILD_CONFIG_CACHE_FILE : &str = "./buildinfo/.buildcache";
@@ -62,6 +62,17 @@ impl Build
     #[inline]
     pub fn new() -> Build
     {
+        // Include path and source directory are required as that is where the compiler will look for files
+        if !Path::new(INCLUDE_PATH).exists() {
+            eprintln!("{}", cformat!("<bold><red>error</red>:</bold> './include' directory not found\nTerminating program."));
+            std::process::exit(1);
+        }
+
+        if !Path::new(SOURCE_DIRECTORY).exists() {
+            eprintln!("{}", cformat!("<bold><red>error</red>:</bold> './src' directory not found\nTerminating program."));
+            std::process::exit(1);
+        }
+
         if !Path::new(BUILD_TABLE_DIRECTORY).exists() {
             fs::create_dir(BUILD_TABLE_DIRECTORY).expect("Failed to create directory")
         }
