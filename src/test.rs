@@ -65,7 +65,6 @@ fn get_src_files(tools : &mut Tools)
 {
     walker::retrieve_source_files(SOURCE_DIRECTORY, 
                                   &mut tools.source_files, 
-                                  &tools.build_config.get_compiler_name(), 
                                   &mut tools.build_table,
                                   &mut tools.old_table);
     

@@ -1,9 +1,9 @@
-use std::{path::{PathBuf, Path}, fs::{File, self, Metadata}, time::UNIX_EPOCH, process::{Command}, sync::{atomic::{AtomicBool, Ordering}}, collections::{HashSet, HashMap}, io::Write};
+use std::{path::{PathBuf, Path}, fs::{File, self, Metadata}, time::UNIX_EPOCH, sync::{atomic::{AtomicBool, Ordering}}, collections::{HashSet, HashMap}, io::Write};
 
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator, ParallelBridge};
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use walkdir::WalkDir;
 
-use crate::{compiler::{self, INCLUDE_PATH_FLAG, INCLUDE_PATH}};
+use crate::{compiler::{self, INCLUDE_PATH}};
 
 
 pub const BUILD_TABLE_DIRECTORY : &str = "./buildinfo";
@@ -147,7 +147,7 @@ impl BuildTable
         if !Path::new(&dep_name).is_file() {
             return HashSet::new();
         }
-        
+
         let dependencies_str_tmp = fs::read_to_string(&dep_name).unwrap();
         
         let dependencies = move || {

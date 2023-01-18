@@ -3,7 +3,7 @@ use std::{time::Instant, env, path::{Path, PathBuf}, fs::{File, self}, io::Write
 use color_print::cprintln;
 use once_cell::sync::Lazy;
 
-use crate::{build::Build, walker, SOURCE_DIRECTORY, buildtable::{self, BUILD_TABLE_DIRECTORY, BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY, BUILD_TABLE_FILE}, compiler, test::{initialize_project, Settings, Tools, modify_file_time}};
+use crate::{build::Build, walker, SOURCE_DIRECTORY, buildtable::{BUILD_TABLE_DIRECTORY, BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY, BUILD_TABLE_FILE}, test::{Tools, modify_file_time}};
 
 const SAMPLES : usize = 3;
 const BENCHMARK_LOG_FILE_PATH : &str = "../benchmark.log";
@@ -171,7 +171,6 @@ fn quikc_benchmark() -> Result<(), Box<dyn std::error::Error>>
         let mut tools = Tools::new();
         benchmark_fn("time to retrieve source files on first compilation",&mut ||walker::retrieve_source_files(SOURCE_DIRECTORY, 
                                 &mut tools.source_files, 
-                                &tools.build_config.get_compiler_name(), 
                                 &mut tools.build_table,
                                 &mut tools.old_table));
     }
@@ -185,7 +184,6 @@ fn quikc_benchmark() -> Result<(), Box<dyn std::error::Error>>
         let mut tools = Tools::new();
         benchmark_fn("time to retrieve source files on header file change",&mut ||walker::retrieve_source_files(SOURCE_DIRECTORY, 
                                 &mut tools.source_files, 
-                                &tools.build_config.get_compiler_name(), 
                                 &mut tools.build_table,
                                 &mut tools.old_table));
     }

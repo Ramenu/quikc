@@ -1,8 +1,7 @@
-use std::{path::PathBuf, sync::atomic::AtomicBool, process::{Command, Stdio}, io::ErrorKind, os::{unix::thread, fd::{FromRawFd, IntoRawFd}}, fs::File};
+use std::{path::PathBuf, sync::atomic::AtomicBool, process::{Command}, io::ErrorKind};
 use color_print::{cprintln, cformat};
 use rayon::prelude::*;
 use std::path::Path;
-use std::thread::spawn;
 
 use crate::{buildtable::{BUILD_TABLE_OBJECT_FILE_DIRECTORY, BUILD_TABLE_DEPS_DIRECTORY}, build::{Build}};
 
