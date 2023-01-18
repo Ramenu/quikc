@@ -1,9 +1,0 @@
-[package]
-    name = "minecraft"
-    debug_build = true
-    
-[compiler]
-    compiler = "g++"
-
-[linker]
-	libraries = ["-lglfw", "-lvulkan"]
