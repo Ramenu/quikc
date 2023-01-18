@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, collections::HashMap};
 
 use build::Build;
 use color_print::cprintln;
@@ -20,13 +20,12 @@ const SOURCE_DIRECTORY : &str = "./src";
 fn main() 
 {
     let build_config = Build::new();
-    let mut old_table = toml::value::Table::new();
+    let mut old_table = HashMap::new();
     let mut source_files = Vec::new();
     let mut build_table = buildtable::BuildTable::new(&mut old_table);
 
     walker::retrieve_source_files(SOURCE_DIRECTORY, 
                                   &mut source_files, 
-                                  &build_config.get_compiler_name(), 
                                   &mut build_table,
                                   &mut old_table);
     if !source_files.is_empty() {
