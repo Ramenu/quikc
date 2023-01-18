@@ -1,1 +1,3 @@
-#include "hi.h"
+int g() {
+    return 1;
+}
