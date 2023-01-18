@@ -1,4 +1,4 @@
-use std::{path::{PathBuf, Path}, fs::{File, self, Metadata}, time::UNIX_EPOCH, process::{Command}, sync::{atomic::{AtomicBool, Ordering}}, collections::HashSet};
+use std::{path::{PathBuf, Path}, fs::{File, self, Metadata}, time::UNIX_EPOCH, process::{Command}, sync::{atomic::{AtomicBool, Ordering}}, collections::{HashSet, HashMap}, io::Write};
 
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator, ParallelBridge};
 use walkdir::WalkDir;
@@ -8,32 +8,33 @@ use crate::{compiler::{self, INCLUDE_PATH_FLAG, INCLUDE_PATH}};
 
 pub const BUILD_TABLE_DIRECTORY : &str = "./buildinfo";
 pub const BUILD_TABLE_OBJECT_FILE_DIRECTORY : &str = "./buildinfo/obj";
-pub const BUILD_TABLE_FILE : &str = "./buildinfo/table.toml";
+pub const BUILD_TABLE_FILE : &str = "./buildinfo/table";
+pub const BUILD_TABLE_DEPS_DIRECTORY : &str = "./buildinfo/deps";
 
 pub struct BuildTable
 {
-    table : toml::value::Table,
+    table : HashMap<String, u64>,
     any_dependencies_changed : bool
 }
 
 #[inline]
-pub fn get_duration_since_modified(metadata : &Metadata) -> i64
+pub fn get_duration_since_modified(metadata : &Metadata) -> u64
 {
-    return (metadata.modified().unwrap().duration_since(UNIX_EPOCH).unwrap().as_millis()) as i64;
+    return (metadata.modified().unwrap().duration_since(UNIX_EPOCH).unwrap().as_millis()) as u64;
 }
 
 fn file_modified_since_last_build(source_file_path : &mut PathBuf, 
                                   source_file_name : &String,
                                   is_header_file : bool,
-                                  time : i64,
-                                  old_table : &toml::value::Table) -> bool
+                                  time : u64,
+                                  old_table : &HashMap<String, u64>) -> bool
 {
 
     // check if value exists in the table, if so, compare the times,
     // if they are the same, then the source file has not been modified,
     // so recompilation is not necessary. Otherwise, it is
     if old_table.contains_key(source_file_name) {
-        let old_value = old_table.get(source_file_name).unwrap().as_integer().unwrap();
+        let old_value = old_table[source_file_name];
 
         if old_value != time {
             return true;
@@ -60,7 +61,7 @@ fn file_modified_since_last_build(source_file_path : &mut PathBuf,
 impl BuildTable
 {
 
-    pub fn new(old_table : &mut toml::value::Table) -> BuildTable
+    pub fn new(old_table : &mut HashMap<String, u64>) -> BuildTable
     {
 
         // Create build object file directory
@@ -68,35 +69,66 @@ impl BuildTable
             std::fs::create_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY).expect("Failed to create build object file directory");
         }
 
+        if !Path::new(BUILD_TABLE_DEPS_DIRECTORY).is_dir() {
+            std::fs::create_dir(BUILD_TABLE_DEPS_DIRECTORY).expect("Failed to create build dependencies directory");
+        }
+
         if !Path::new(BUILD_TABLE_FILE).is_file() {
             File::create(BUILD_TABLE_FILE).expect("Failed to create file");
         }
 
-        let file_contents = fs::read_to_string(BUILD_TABLE_FILE).expect("Failed to read from build table file");
-
-        let mut table : toml::value::Table = toml::from_str(&file_contents).expect("Failed to parse build table file");
+        let file_contents = fs::read_to_string(BUILD_TABLE_FILE).expect("Failed to read file");
+        let mut table = HashMap::new();
         let mut any_dependencies_changed = false;
-        *old_table = table.clone();
+        
+        // If the file is empty, then we do not have to check if any modifications were made and can simply
+        // just add the all header files to the table
+        if !file_contents.is_empty() {
+            for line in file_contents.lines() {
+                let split : Vec<&str> = line.split("=").collect();
+                let key = split[0].to_string();
+                let value = split[1].parse::<u64>().unwrap();
+                table.insert(key, value);
+            }
 
-        for path in WalkDir::new(INCLUDE_PATH) {
-            let mut path = path.unwrap().path().to_path_buf();
-            let path_str = path.to_str().unwrap().to_string();
+            *old_table = table.clone();
+        
 
-            let is_header_file = compiler::is_header_file(&path_str);
-            // compiler doesnt show relative path sometimes so we need to address that
-            let path_str_no_relative = if path_str.starts_with("./") { path_str[2..].to_string() } else { path_str };
-            if is_header_file {
-                let metadata = path.metadata().unwrap();
-                let duration = get_duration_since_modified(&metadata);
-                if file_modified_since_last_build(&mut path, 
-                                                            &path_str_no_relative, 
-                                                            true,
-                                                            duration,
-                                                                 &old_table) {
-                    table.insert(path_str_no_relative, toml::Value::Integer(duration));
-                    any_dependencies_changed = true;
+            for path in WalkDir::new(INCLUDE_PATH) {
+                let mut path = path.unwrap().path().to_path_buf();
+                let path_str = path.to_str().unwrap().to_string();
+
+                let is_header_file = compiler::is_header_file(&path_str);
+                // compiler doesnt show relative path sometimes so we need to address that
+                let path_str_no_relative = if path_str.starts_with("./") { path_str[2..].to_string() } else { path_str };
+                if is_header_file {
+                    let metadata = path.metadata().unwrap();
+                    let duration = get_duration_since_modified(&metadata);
+                    if file_modified_since_last_build(&mut path, 
+                                                                &path_str_no_relative, 
+                                                                true,
+                                                                duration,
+                                                                    &old_table) {
+                        table.insert(path_str_no_relative, duration);
+                        any_dependencies_changed = true;
+                    }
                 }
             }
+        }
+        else {
+            for path in WalkDir::new(INCLUDE_PATH) {
+                let path = path.unwrap().path().to_path_buf();
+                let path_str = path.to_str().unwrap().to_string();
+                let is_header_file = compiler::is_header_file(&path_str);
+                // compiler doesnt show relative path sometimes so we need to address that
+                let path_str_no_relative = if path_str.starts_with("./") { path_str[2..].to_string() } else { path_str };
+                if is_header_file {
+                    let metadata = path.metadata().unwrap();
+                    let duration = get_duration_since_modified(&metadata);
+                    table.insert(path_str_no_relative, duration);
+                }
+            }
+            any_dependencies_changed = true;
         }
 
         return BuildTable {
@@ -105,19 +137,18 @@ impl BuildTable
         };
     }
 
-    fn get_file_dependencies(&self,
-                             compiler_name : &str, 
-                             source_file_name : &String) -> HashSet<String>
+    pub fn get_file_dependencies(&self, source_file_name : &str) -> HashSet<String>
     {
-        let cmd_output = &Command::new(compiler_name)
-                                            .arg(INCLUDE_PATH_FLAG)
-                                            .arg("-MM")
-                                            .arg(source_file_name)
-                                            .output()
-                                            .expect("Failed to retrieve dependencies")
-                                            .stdout;
+        let mut path = PathBuf::from(source_file_name);
+        path.set_extension("");
+        let file_name = path.file_name().unwrap().to_str().unwrap();
+        let dep_name = BUILD_TABLE_DEPS_DIRECTORY.to_string() + "/" + file_name + ".d";
 
-        let dependencies_str_tmp = String::from_utf8_lossy(&cmd_output);
+        if !Path::new(&dep_name).is_file() {
+            return HashSet::new();
+        }
+        
+        let dependencies_str_tmp = fs::read_to_string(&dep_name).unwrap();
         
         let dependencies = move || {
             let mut count = 0;
@@ -139,26 +170,24 @@ impl BuildTable
 
     pub fn needs_to_be_recompiled(&mut self,
                                   source_file_path : &mut PathBuf,
-                                  compiler_name : &str,
-                                  old_table : &toml::value::Table) -> bool
+                                  old_table : &HashMap<String, u64>) -> bool
     {
         let source_file_name = source_file_path.to_str().unwrap().to_string();
 
 
         // check if source file has changed (note we still need to check if any dependencies have changed to update
         // the build table)
-        let source_modified_duration = get_duration_since_modified(&source_file_path.metadata().unwrap());
-        let time = toml::Value::Integer(source_modified_duration);
+        let source_modified_duration = get_duration_since_modified(&source_file_path.metadata().unwrap()) as u64;
         if file_modified_since_last_build(source_file_path, 
                                                &source_file_name, 
                                                false, 
                                                source_modified_duration,
                                                old_table) {
-            self.table.insert(source_file_name, time);
+            self.table.insert(source_file_name, source_modified_duration);
             return true;
         }
         else if self.any_dependencies_changed {
-            let dependencies = self.get_file_dependencies(compiler_name, &source_file_name);
+            let dependencies = self.get_file_dependencies(&source_file_name);
             const LARGE_NUMBER_OF_FILES : usize = 50;
 
             // Doing this in parallel can actually be significantly slower if there aren't a lot of
@@ -210,6 +239,14 @@ impl BuildTable
         self.table.remove(path_str);
     }
 
+    /// This should only be called after you check if every source file
+    /// has changed. 
+    #[inline]
+    pub fn set_any_dependencies_changed(&mut self, source_files_changed : bool) 
+    {
+        self.any_dependencies_changed |= source_files_changed;
+    }
+
     #[cfg(test)]
     pub fn contains(&self, path_str : &str) -> bool
     {
@@ -223,6 +260,12 @@ impl Drop for BuildTable
     #[inline]
     fn drop(&mut self)
     {
-        fs::write(BUILD_TABLE_FILE, toml::to_string(&self.table).unwrap()).expect("Failed to write to file");
+        // No point of writing to file if none of the dependencies changed
+        if self.any_dependencies_changed {
+            let mut f = File::create(BUILD_TABLE_FILE).expect("Failed to create build table file");
+            for (k, v) in &self.table {
+                f.write(format!("{}={}\n", k, v).as_bytes()).expect("Failed to write to build table file");
+            }
+        }
     }
 }

@@ -98,26 +98,13 @@ pub fn compile_to_object_files(source_files : &Vec<String>,
         let out = to_output_file(&mut out_file_path, BUILD_TABLE_OBJECT_FILE_DIRECTORY, "o");
         let dep_name = to_output_file(&mut out_file_path, BUILD_TABLE_DEPS_DIRECTORY, "d");
 
-        let dep_file = File::create(&dep_name).expect("Failed to create dependency file");
-        #[cfg(unix)]
-            Command::new(build_info.get_compiler_name())
-                    .args([INCLUDE_PATH_FLAG, file, "-MM"])
-                    .stdout(unsafe { Stdio::from_raw_fd(dep_file.into_raw_fd())})
-                    .spawn()
-                    .expect("Failed to spawn process");
-        #[cfg(windows)]
-            Command::new(build_info.get_compiler_name())
-                    .args([INCLUDE_PATH_FLAG, file, "-MM"])
-                    .stdout(unsafe { Stdio::from_raw_handle(dep_file.into_raw_handle())})
-                    .spawn()
-                    .expect("Failed to spawn process");
+        Command::new(build_info.get_compiler_name())
+                .args([INCLUDE_PATH_FLAG, file, "-MM", "-o", &dep_name])
+                .spawn()
+                .expect("Failed to spawn process");
         
         let output = build_info.execute_compiler_with_build_info(file)
-                                       .arg(INCLUDE_PATH_FLAG)
-                                       .arg(file)
-                                       .arg("-c")
-                                       .arg("-o")
-                                       .arg(&out)
+                                       .args([INCLUDE_PATH_FLAG, file, "-c", "-o", &out])
                                        .output()
                                        .expect("Failed to execute process");
         
