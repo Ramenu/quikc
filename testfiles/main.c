@@ -1,6 +1,6 @@
 #include "hi.h"
 
-int main()
+int main(void)
 {
     hi("friend!");
     return 0;
