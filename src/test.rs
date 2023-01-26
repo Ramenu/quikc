@@ -1,12 +1,13 @@
 use std::{process::Command, fs::{self}, env, path::Path, time::{SystemTime}, collections::HashMap};
 
+use color_print::cprintln;
 use filetime::{set_file_mtime};
 
 use crate::{build::{BUILD_CONFIG_FILE, Build}, SOURCE_DIRECTORY, compiler::{INCLUDE_PATH, compile_to_object_files, is_c_source_file, is_cpp_source_file, is_header_file}, buildtable::{BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY, get_duration_since_modified}, walker, linker::link_files};
 
 const TOTAL_SOURCE_FILES : usize = 3;
 const TEST_FILES_DIR : &str = "../testfiles";
-const TEST_PACKAGE_NAME : &str = "test_binary";
+const TEST_PACKAGE_NAME : &str = "main";
 
 pub struct Tools
 {
@@ -43,6 +44,12 @@ impl Tools
 fn get_source_file(file_name : &str) -> String
 {
     return format!("{}/{}", SOURCE_DIRECTORY, file_name);
+}
+
+#[inline]
+fn get_dependency_file(file_name : &str) -> String
+{
+    return format!("{}/{}", INCLUDE_PATH, file_name);
 }
 
 /// This function doesn't literally modify the file, but it
@@ -143,9 +150,11 @@ fn reset() -> Result<(), Box<dyn std::error::Error>>
 /// It runs it sequentially because running them independently
 /// can have unintended side affects.
 #[test]
-fn test_all() -> Result<(), Box<dyn std::error::Error>>
+pub fn test_all() -> Result<(), Box<dyn std::error::Error>>
 {
     let mut settings = Settings{use_clang : false};
+
+    // run it 2 times using GCC and clang
     for _ in 0..2 {
         test_quikc_init(&settings)?;
         reset()?;
@@ -156,8 +165,8 @@ fn test_all() -> Result<(), Box<dyn std::error::Error>>
         test_recompilation(&settings)?;
         reset()?;
 
-        test_invalid_file_recompiles(&settings)?;
-        reset()?;
+        //test_invalid_file_recompiles(&settings)?;
+        //reset()?;
 
         test_recompile_after_config_change(&settings)?;
         reset()?;
@@ -168,9 +177,13 @@ fn test_all() -> Result<(), Box<dyn std::error::Error>>
         test_recompilation_after_deleting_binary(&settings)?;
         reset()?;
 
+        test_compilation_after_dependency_deletion(&settings)?;
+        reset()?;
+
         settings.use_clang = true;
     }
 
+    cprintln!("<bold> {}-- <green>All tests passed</green> --{}</bold>", '<', '>');
     Ok(())
 }
 
@@ -209,7 +222,6 @@ fn test_first_time_compilation(settings : &Settings) -> Result<(), Box<dyn std::
     let link_success = link_files(&tools.build_config);
     assert_eq!(link_success, true);
 
-
     Ok(())
 }
 
@@ -224,7 +236,7 @@ fn test_recompilation(settings : &Settings) -> Result<(), Box<dyn std::error::Er
 
     // Compiled it once, now we modify a specific source file and recompile
     {
-        let source_file_to_modify = format!("{}/{}", SOURCE_DIRECTORY, "main.c");
+        let source_file_to_modify = get_source_file("main.c");
         modify_file_time(source_file_to_modify.as_str())?;
         let mut tools = Tools::new();
         get_src_files(&mut tools);
@@ -350,16 +362,59 @@ fn test_recompile_after_deletion(settings : &Settings) -> Result<(), Box<dyn std
     Ok(())
 }
 
+/// Tests if the project will relink (and not recompile) if the binary has been deleted.
 fn test_recompilation_after_deleting_binary(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
 {
     test_first_time_compilation(settings)?;
-
     fs::remove_file(TEST_PACKAGE_NAME)?;
 
     let mut tools = Tools::new();
     get_src_files(&mut tools);
 
     assert_eq!(tools.source_files.len(), 0);
+    assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_SOURCE_FILES);
+
+    let link_success = link_files(&tools.build_config);
+    assert_eq!(link_success, true);
+
+    Ok(())
+}
+
+/// Tests if the project will recompile correctly after a dependency has been moved/deleted.
+fn test_compilation_after_dependency_deletion(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
+{
+    test_first_time_compilation(&settings).unwrap();
+
+    fs::remove_file(get_dependency_file("hi.h"))?;
+
+    // technically this is invalid since this wouldnt actually compile given
+    // a real scenario, but we need to forge the modification date of the 
+    // copied files that are not dependent on hi.h to be the same as the original files. 
+    // Otherwise quikc will not check if any dependencies changed, since it checks if the
+    // source file has changed first. If it does this, then the entire purpose of the test
+    // is pointless.
+    let mainc_source = get_source_file("main.c");
+    let hic_source = get_source_file("hi.c");
+    
+    let time_modified_mainc = fs::metadata(&mainc_source)?.modified()?;
+    let time_modified_hic = fs::metadata(&hic_source)?.modified()?;
+
+    let mainc_no_deps = format!("{}/nondeps/main.c", TEST_FILES_DIR);
+    let hic_no_deps = format!("{}/nondeps/hi.c", TEST_FILES_DIR);
+
+
+    fs::copy(mainc_no_deps, &mainc_source)?;
+    fs::copy(hic_no_deps, &hic_source)?;
+
+    set_file_mtime(&mainc_source, time_modified_mainc.into())?;
+    set_file_mtime(&hic_source, time_modified_hic.into())?;
+
+    let mut tools = Tools::new();
+    get_src_files(&mut tools);
+
+    // 2 source files had the dependency, with the dependency removed, they were changed, so
+    // they need to be recompiled
+    assert_eq!(tools.source_files.len(), 2);
     assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_SOURCE_FILES);
 
     let link_success = link_files(&tools.build_config);

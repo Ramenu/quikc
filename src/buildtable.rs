@@ -81,36 +81,49 @@ impl BuildTable
         let mut table = HashMap::new();
         let mut any_dependencies_changed = false;
         
-        // If the file is empty, then we do not have to check if any modifications were made and can simply
-        // just add the all header files to the table
+        // If the file is empty, then we do not have to check if any modifications were 
+        // made and can simply just add the all header files to the table
         if !file_contents.is_empty() {
             for line in file_contents.lines() {
                 let split : Vec<&str> = line.split("=").collect();
                 let key = split[0].to_string();
                 let value = split[1].parse::<u64>().unwrap();
-                table.insert(key, value);
-            }
+                
+                let exists = Path::new(&key).exists();
 
-            *old_table = table.clone();
+                // It's important to check if the file exists here,
+                // dependencies may have gotten deleted or moved somewhere
+                // else since the last build. If this is the case, we need
+                // to confirm that the file is in fact a dependency, and if so,
+                // mark 'any_dependencies_changed' as true.
+                if exists {
+                    table.insert(key.to_owned(), value);
+                    old_table.insert(key, value);
+                }
+                else if compiler::is_header_file(&key){
+                    any_dependencies_changed = true;
+                }
+            }
         
 
             for path in WalkDir::new(INCLUDE_PATH) {
                 let mut path = path.unwrap().path().to_path_buf();
-                let path_str = path.to_str().unwrap().to_string();
-
-                let is_header_file = compiler::is_header_file(&path_str);
-                // compiler doesnt show relative path sometimes so we need to address that
-                let path_str_no_relative = if path_str.starts_with("./") { path_str[2..].to_string() } else { path_str };
-                if is_header_file {
-                    let metadata = path.metadata().unwrap();
-                    let duration = get_duration_since_modified(&metadata);
-                    if file_modified_since_last_build(&mut path, 
-                                                                &path_str_no_relative, 
-                                                                true,
-                                                                duration,
-                                                                    &old_table) {
-                        table.insert(path_str_no_relative, duration);
-                        any_dependencies_changed = true;
+                if path.is_file() {
+                    let path_str = path.to_str().unwrap().to_string();
+                    let is_header_file = compiler::is_header_file(&path_str);
+                    // compiler doesnt show relative path sometimes so we need to address that
+                    let path_str_no_relative = if path_str.starts_with("./") { path_str[2..].to_string() } else { path_str };
+                    if is_header_file {
+                        let metadata = path.metadata().unwrap();
+                        let duration = get_duration_since_modified(&metadata);
+                        if file_modified_since_last_build(&mut path, 
+                                                                    &path_str_no_relative, 
+                                                                    true,
+                                                                    duration,
+                                                                        &old_table) {
+                            table.insert(path_str_no_relative, duration);
+                            any_dependencies_changed = true;
+                        }
                     }
                 }
             }
@@ -118,14 +131,17 @@ impl BuildTable
         else {
             for path in WalkDir::new(INCLUDE_PATH) {
                 let path = path.unwrap().path().to_path_buf();
-                let path_str = path.to_str().unwrap().to_string();
-                let is_header_file = compiler::is_header_file(&path_str);
-                // compiler doesnt show relative path sometimes so we need to address that
-                let path_str_no_relative = if path_str.starts_with("./") { path_str[2..].to_string() } else { path_str };
-                if is_header_file {
-                    let metadata = path.metadata().unwrap();
-                    let duration = get_duration_since_modified(&metadata);
-                    table.insert(path_str_no_relative, duration);
+
+                if path.is_file() {
+                    let path_str = path.to_str().unwrap().to_string();
+                    let is_header_file = compiler::is_header_file(&path_str);
+                    // compiler doesnt show relative path sometimes so we need to address that
+                    let path_str_no_relative = if path_str.starts_with("./") { path_str[2..].to_string() } else { path_str };
+                    if is_header_file {
+                        let metadata = path.metadata().unwrap();
+                        let duration = get_duration_since_modified(&metadata);
+                        table.insert(path_str_no_relative, duration);
+                    }
                 }
             }
             any_dependencies_changed = true;
@@ -199,13 +215,23 @@ impl BuildTable
                     // sometimes the compiler shows '\' for line breaks, so we need to ignore those
                     if dependency != "\\" {
                         let mut dependency_path = PathBuf::from(dependency);
-                        let source_metadata = dependency_path.metadata().expect("Failed to retrieve metadata from file");
-                        let duration = get_duration_since_modified(&source_metadata);
-                        if file_modified_since_last_build(&mut dependency_path, 
-                                                                dependency, 
-                                                                true,
-                                                                duration,
-                                                                    old_table) {
+                        // some dependencies may have been deleted or moved to different locations
+                        // since last compilation so its important to check if it exists first
+                        if dependency_path.exists() {
+                            let source_metadata = dependency_path.metadata().expect("Failed to retrieve metadata from file");
+                            let duration = get_duration_since_modified(&source_metadata);
+                            if file_modified_since_last_build(&mut dependency_path, 
+                                                                    dependency, 
+                                                                    true,
+                                                                    duration,
+                                                                        old_table) {
+                                recompile.store(true, Ordering::Relaxed);
+                                return;
+                            }
+                        }
+                        else {
+                            // dependency was deleted or moved so we need to recompile 
+                            // the file
                             recompile.store(true, Ordering::Relaxed);
                             return;
                         }
@@ -217,13 +243,18 @@ impl BuildTable
             for dependency in dependencies {
                 if dependency != "\\" {
                     let mut dependency_path = PathBuf::from(&dependency);
-                    let source_metadata = dependency_path.metadata().expect("Failed to retrieve metadata from file");
-                    let duration = get_duration_since_modified(&source_metadata);
-                    if file_modified_since_last_build(&mut dependency_path, 
-                                                            &dependency, 
-                                                            true,
-                                                            duration,
-                                                                old_table) {
+                    if dependency_path.exists() {
+                        let source_metadata = dependency_path.metadata().expect("Failed to retrieve metadata from file");
+                        let duration = get_duration_since_modified(&source_metadata);
+                        if file_modified_since_last_build(&mut dependency_path, 
+                                                                &dependency, 
+                                                                true,
+                                                                duration,
+                                                                    old_table) {
+                            return true;
+                        }
+                    }
+                    else { 
                         return true;
                     }
                 }

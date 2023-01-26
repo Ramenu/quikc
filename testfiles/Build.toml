@@ -1,0 +1,10 @@
+# A modified version of the regular 'Build.toml'.
+# Used for checking if the previous build table
+# has the same configurations as the regular one.
+
+[package]
+    name = "main"
+    debug_build = false
+    
+[compiler]
+    compiler = "gcc"

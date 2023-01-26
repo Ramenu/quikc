@@ -1,3 +1,4 @@
-int g() {
+
+int g(void) {
     return 1;
 }

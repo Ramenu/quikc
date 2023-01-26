@@ -52,7 +52,7 @@ pub const GCC_COMPILER_CPP_EXCLUSIVE_WARNINGS : [&str; 13] = [
     "-Wvirtual-inheritance",
 ];
 
-pub const CLANG_COMPILER_NONEXCLUSIVE_WARNINGS : [&str; 49] = [
+pub const CLANG_COMPILER_NONEXCLUSIVE_WARNINGS : [&str; 51] = [
     "-Werror",
     "-Wpedantic",
     "-Wall",
@@ -102,6 +102,8 @@ pub const CLANG_COMPILER_NONEXCLUSIVE_WARNINGS : [&str; 49] = [
     "-Wmisleading-indentation",
     "-Wmismatched-tags",
     "-Wmissing-braces",
+    "-Winvalid-utf8",
+    "-Warray-parameter"
 ];
 
 pub const GCC_AND_CLANG_DIALECT_OPTIONS : [&str; 4] = [

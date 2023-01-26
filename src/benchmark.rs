@@ -3,7 +3,7 @@ use std::{time::Instant, env, path::{Path, PathBuf}, fs::{File, self}, io::Write
 use color_print::cprintln;
 use once_cell::sync::Lazy;
 
-use crate::{build::Build, walker, SOURCE_DIRECTORY, buildtable::{BUILD_TABLE_DIRECTORY, BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY, BUILD_TABLE_FILE}, test::{Tools, modify_file_time}};
+use crate::{build::Build, walker, SOURCE_DIRECTORY, buildtable::{BUILD_TABLE_DIRECTORY, BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY, BUILD_TABLE_FILE}, test::{Tools, modify_file_time, self}};
 
 const SAMPLES : usize = 3;
 const BENCHMARK_LOG_FILE_PATH : &str = "../benchmark.log";
@@ -60,8 +60,12 @@ fn reset() -> Result<(), Box<dyn std::error::Error>>
     // Do not delete everything as the dependencies directory can't be regenerated unless
     // running the compiler (not recommended)
     if Path::new(BUILD_TABLE_DIRECTORY).exists() {
-        std::fs::remove_dir_all(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?;
-        std::fs::remove_file(BUILD_TABLE_FILE)?;
+        if Path::new(BUILD_TABLE_OBJECT_FILE_DIRECTORY).exists() {
+            std::fs::remove_dir_all(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?;
+        }
+        if Path::new(BUILD_TABLE_FILE).exists() {
+            std::fs::remove_file(BUILD_TABLE_FILE)?;
+        }
     }
     Ok(())
 }
@@ -156,7 +160,12 @@ fn print_diff(msg : &str, diff : f64, unit : &str)
 #[test]
 fn quikc_benchmark() -> Result<(), Box<dyn std::error::Error>>
 {
+    // before we begin benchmarking, run a test to make sure everything is
+    // working as intended
+    test::test_all()?;
+    
     const BENCHMARK_DIR : &str = "./benchmark";
+    println!("{}", env::current_dir()?.as_os_str().to_str().unwrap());
 
     // cd into benchmark directory and remove the build table directory so we can recompile
     // from scratch

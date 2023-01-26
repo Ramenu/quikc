@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::atomic::AtomicBool, process::{Command}, io::ErrorKind};
+use std::{path::PathBuf, process::{Command}, io::ErrorKind};
 use color_print::{cprintln, cformat};
 use rayon::prelude::*;
 use std::path::Path;
@@ -89,7 +89,6 @@ pub fn select_default_compiler() -> &'static str
 pub fn compile_to_object_files(source_files : &Vec<String>,
                                build_info : &Build) -> bool
 {
-    let compilation_successful = AtomicBool::new(true);
     source_files.into_par_iter().for_each(|file| {
         cprintln!("<green><bold>Compiling </bold>'{}'...</green>", file);
 
@@ -117,11 +116,9 @@ pub fn compile_to_object_files(source_files : &Vec<String>,
             if Path::new(&out).exists() {
                 std::fs::remove_file(&out).expect("Failed to remove object file from build directory");
             }
-            compilation_successful.store(false, std::sync::atomic::Ordering::Relaxed);
-
-            return;
+            std::process::exit(1);
         }
     });
     // TODO: If the compilation failed, terminate the program (only do this after updating the build table)
-    return compilation_successful.load(std::sync::atomic::Ordering::Relaxed);
+    return true;
 }

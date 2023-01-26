@@ -1,0 +1,8 @@
+# Build.toml for clang
+
+[package]
+    name = "main"
+    debug_build = true
+
+[compiler]
+    compiler = "clang"
