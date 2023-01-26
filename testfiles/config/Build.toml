@@ -1,7 +1,7 @@
 # Build.toml for clang
 
 [package]
-    name = "test_binary"
+    name = "main"
     debug_build = true
 
 [compiler]

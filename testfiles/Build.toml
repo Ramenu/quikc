@@ -3,7 +3,7 @@
 # has the same configurations as the regular one.
 
 [package]
-    name = "test_binary"
+    name = "main"
     debug_build = false
     
 [compiler]
