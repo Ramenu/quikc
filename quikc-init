@@ -26,7 +26,7 @@ BUILD_INFO_OBJ_DIR = f"{BUILD_INFO_DIR}/obj"
 BUILD_INFO_TABLE = f"{BUILD_INFO_DIR}/table"
 SOURCE_DIR = "./src"
 INCLUDE_DIR = "./include"
-MAIN_C_SOURCE_FILE = f"{SOURCE_DIR}/main.c"
+MAIN_C_SOURCE_FILE = f"{SOURCE_DIR}/{packageName}.c"
 
 BUILD_TOML_STR = f"\
 [package]\n\
@@ -39,7 +39,7 @@ BUILD_TOML_STR = f"\
 SOURCE_FILE_STR = f"\
 #include <stdio.h>\n\
 \n\
-int main()\n\
+int main(void)\n\
 {{\n\
     printf(\"Hello world!\\n\");\n\
     return 0;\n\
