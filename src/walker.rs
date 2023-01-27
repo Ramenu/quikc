@@ -31,7 +31,7 @@ fn source_dependency_missing(dir : &str, build_table : &mut BuildTable) -> bool
 
         if !exists {
             // Remove object file since it is no longer in the source directory 
-            fs::remove_file(&object_file_path).expect("Failed to remove object file");
+            fs::remove_file(object_file_path).expect("Failed to remove object file");
 
             // We don't actually know the source file's extension, so just attempt to erase
             // every possible extension instead. It's not the best way of doing this, but not
@@ -44,7 +44,7 @@ fn source_dependency_missing(dir : &str, build_table : &mut BuildTable) -> bool
         }
     }
 
-    return false;
+    false
 
 }
 
@@ -67,7 +67,7 @@ pub fn retrieve_source_files(dir: &str,
             has_source_file = true;
 
             if source_dependency_missing ||
-               build_table.needs_to_be_recompiled(&mut retrieved_path, &old_table) {
+               build_table.needs_to_be_recompiled(&mut retrieved_path, old_table) {
                 source_file_needs_to_be_recompiled = true;
                 source_files.push(path_str);
             }

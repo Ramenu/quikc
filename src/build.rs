@@ -117,15 +117,13 @@ impl Build
         }
 
         // Make sure the cached toml exists before comparing the files
-        if cached_toml.is_some() {
+        if let Some(cached_toml) = cached_toml {
             // Check if the configuration file has changed since the last build, if so we need to remove all the object
             // files to recompile them again (as well as the 'table.toml' file)
-            if toml_config != cached_toml.unwrap() {
-                if Path::new(BUILD_TABLE_OBJECT_FILE_DIRECTORY).is_dir() {
-                    fs::remove_dir_all(BUILD_TABLE_OBJECT_FILE_DIRECTORY).expect("Failed to remove build table object file directory");
-                    fs::remove_file(BUILD_TABLE_FILE).expect("Failed to remove build table file");
-                    fs::copy(BUILD_CONFIG_FILE, BUILD_CONFIG_CACHE_FILE).expect("Failed to copy from build table file");
-                }
+            if toml_config != cached_toml && Path::new(BUILD_TABLE_OBJECT_FILE_DIRECTORY).is_dir() {
+                fs::remove_dir_all(BUILD_TABLE_OBJECT_FILE_DIRECTORY).expect("Failed to remove build table object file directory");
+                fs::remove_file(BUILD_TABLE_FILE).expect("Failed to remove build table file");
+                fs::copy(BUILD_CONFIG_FILE, BUILD_CONFIG_CACHE_FILE).expect("Failed to copy from build table file");
             }
         }
 
@@ -148,10 +146,10 @@ impl Build
         config.package.name = toml_config.package.name;
         config.package.debug_build = toml_config.package.debug_build;
 
-        return config;
+        config
     }
 
-    pub fn execute_compiler_with_build_info(&self, file : &String) -> Command
+    pub fn execute_compiler_with_build_info(&self, file : &str) -> Command
     {
         let compiler_args = &self.compiler.args;
 
@@ -225,10 +223,8 @@ impl Build
                             cmd.args(GCC_COMPILER_CPP_DIALECT_OPTIONS);
                             cmd.args(GCC_COMPILER_CPP_EXCLUSIVE_WARNINGS);
                         }
-                        if self.misc.static_analysis_enabled.is_some() {
-                            if self.misc.static_analysis_enabled.unwrap() {
-                                cmd.args(GCC_STATIC_ANALYSIS_OPTIONS);
-                            }
+                        if self.misc.static_analysis_enabled.is_some() && self.misc.static_analysis_enabled.unwrap() {
+                            cmd.args(GCC_STATIC_ANALYSIS_OPTIONS);
                         }
                     }
                     "clang"|"clang++" => {
@@ -249,7 +245,7 @@ impl Build
 
         // If default configuration is not set, then use the user's custom flags
         cmd.args(compiler_args.as_ref().unwrap().iter());
-        return cmd;
+        cmd
 
     }
 
@@ -269,28 +265,26 @@ impl Build
             let linker_args = self.linker.args.as_ref().unwrap();
             cmd.args(linker_args.iter());
         }
-        if linker_libraries.is_some() {
-            if !linker_libraries.unwrap().is_empty() {
-                cmd.args(linker_libraries.unwrap().iter());
-            }
+        if let Some(linker_libraries) = linker_libraries {
+            cmd.args(linker_libraries.iter());
         }
-        return cmd;
+        cmd
 
     }
 
     #[inline]
     pub fn get_package_name(&self) -> &String {
-        return &self.package.name;
+        &self.package.name
     }
 
     #[inline]
     pub fn is_debug_build(&self) -> bool {
-        return self.package.debug_build;
+        self.package.debug_build
     }
 
     #[inline]
     pub fn get_compiler_name(&self) -> &String {
-        return &self.compiler.compiler;
+        &self.compiler.compiler
     }
 
 }

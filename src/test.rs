@@ -31,25 +31,25 @@ impl Tools
         let source_files = Vec::new();
         let build_table = BuildTable::new(&mut old_table);
 
-        return Tools {
+        Tools {
             build_config,
             source_files,
             old_table,
             build_table
-        };
+        }
     }
 }
 
 #[inline]
 fn get_source_file(file_name : &str) -> String
 {
-    return format!("{}/{}", SOURCE_DIRECTORY, file_name);
+    format!("{}/{}", SOURCE_DIRECTORY, file_name)
 }
 
 #[inline]
 fn get_dependency_file(file_name : &str) -> String
 {
-    return format!("{}/{}", INCLUDE_PATH, file_name);
+    format!("{}/{}", INCLUDE_PATH, file_name)
 }
 
 /// This function doesn't literally modify the file, but it
@@ -96,7 +96,7 @@ pub fn initialize_project(setup_additional_files : bool,
                                      .arg(TEST_PACKAGE_NAME)
                                      .spawn()?
                                      .wait()?;
-    assert_eq!(status.success(), true);
+    assert!(status.success());
 
     if settings.use_clang {
         let clang_build_toml = format!("{TEST_FILES_DIR}/config/{BUILD_CONFIG_FILE}");
@@ -198,10 +198,10 @@ fn test_quikc_init(settings : &Settings) ->  Result<(), Box<dyn std::error::Erro
 
     let source_file = format!("{}/main.c", SOURCE_DIRECTORY);
 
-    assert_eq!(Path::new(BUILD_CONFIG_FILE).is_file(), true);
-    assert_eq!(Path::new(SOURCE_DIRECTORY).is_dir(), true);
-    assert_eq!(Path::new(INCLUDE_PATH).is_dir(), true);
-    assert_eq!(Path::new(&source_file).is_file(), true);
+    assert!(Path::new(BUILD_CONFIG_FILE).is_file());
+    assert!(Path::new(SOURCE_DIRECTORY).is_dir());
+    assert!(Path::new(INCLUDE_PATH).is_dir());
+    assert!(Path::new(&source_file).is_file());
     
     Ok(())
 }
@@ -216,11 +216,11 @@ fn test_first_time_compilation(settings : &Settings) -> Result<(), Box<dyn std::
     assert_eq!(tools.source_files.len(), TOTAL_SOURCE_FILES);
 
     let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
-    assert_eq!(compilation_success, true);
+    assert!(compilation_success);
     assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_SOURCE_FILES);
 
     let link_success = link_files(&tools.build_config);
-    assert_eq!(link_success, true);
+    assert!(link_success);
 
     Ok(())
 }
@@ -245,11 +245,11 @@ fn test_recompilation(settings : &Settings) -> Result<(), Box<dyn std::error::Er
         assert_eq!(tools.source_files.len(), 1); 
         let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
 
-        assert_eq!(compilation_success, true);
+        assert!(compilation_success);
         assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_SOURCE_FILES);
 
         let link_success = link_files(&tools.build_config);
-        assert_eq!(link_success, true);
+        assert!(link_success);
     }
 
     // Modify the header file, once modified, then all of the source files that
@@ -264,11 +264,11 @@ fn test_recompilation(settings : &Settings) -> Result<(), Box<dyn std::error::Er
         assert_eq!(tools.source_files.len(), 2);
 
         let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
-        assert_eq!(compilation_success, true);
+        assert!(compilation_success);
         assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_SOURCE_FILES);
 
         let link_success = link_files(&tools.build_config);
-        assert_eq!(link_success, true);
+        assert!(link_success);
     }
 
     Ok(())
@@ -291,7 +291,7 @@ fn test_invalid_file_recompiles(settings : &Settings) -> Result<(), Box<dyn std:
         let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
 
         // Compilation should have failed since the invalid file has a error in it
-        assert_eq!(compilation_success, false); 
+        assert!(!compilation_success); 
 
         // There should only be 'TOTAL_FILES - 1' object files since the invalid file
         // did not compile successfully
@@ -323,11 +323,11 @@ fn test_recompile_after_config_change(settings : &Settings) -> Result<(), Box<dy
     assert_eq!(tools.source_files.len(), TOTAL_SOURCE_FILES);
     let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
 
-    assert_eq!(compilation_success, true);
+    assert!(compilation_success);
     assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_SOURCE_FILES);
 
     let link_success = link_files(&tools.build_config);
-    assert_eq!(link_success, true);
+    assert!(link_success);
 
     Ok(())
 }
@@ -350,12 +350,12 @@ fn test_recompile_after_deletion(settings : &Settings) -> Result<(), Box<dyn std
 
         let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
 
-        assert_eq!(compilation_success, true);
+        assert!(compilation_success);
         assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), NUM_FILES_AFTER_DELETION);
         assert_eq!(tools.build_table.contains(format!("{}/{}", SOURCE_DIRECTORY, FILE_TO_BE_DELETED).as_str()), false);
 
         let link_success = link_files(&tools.build_config);
-        assert_eq!(link_success, true);
+        assert!(link_success);
 
     }
 
@@ -375,7 +375,7 @@ fn test_recompilation_after_deleting_binary(settings : &Settings) -> Result<(), 
     assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_SOURCE_FILES);
 
     let link_success = link_files(&tools.build_config);
-    assert_eq!(link_success, true);
+    assert!(link_success);
 
     Ok(())
 }
@@ -383,7 +383,7 @@ fn test_recompilation_after_deleting_binary(settings : &Settings) -> Result<(), 
 /// Tests if the project will recompile correctly after a dependency has been moved/deleted.
 fn test_compilation_after_dependency_deletion(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
 {
-    test_first_time_compilation(&settings).unwrap();
+    test_first_time_compilation(settings).unwrap();
 
     fs::remove_file(get_dependency_file("hi.h"))?;
 
@@ -418,7 +418,7 @@ fn test_compilation_after_dependency_deletion(settings : &Settings) -> Result<()
     assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_SOURCE_FILES);
 
     let link_success = link_files(&tools.build_config);
-    assert_eq!(link_success, true);
+    assert!(link_success);
 
     Ok(())
 }

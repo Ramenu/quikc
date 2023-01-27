@@ -14,46 +14,41 @@ pub fn is_header_file(file : &str) -> bool
     if file.ends_with(".h") {
         return true;
     }
-    return file.ends_with(".hpp") || file.ends_with(".hxx") || file.ends_with(".hh");
+    file.ends_with(".hpp") || file.ends_with(".hxx") || file.ends_with(".hh")
 }
 #[inline]
 pub fn to_output_file(path : &mut PathBuf, directory : &str, ext : &str) -> String
 {
     path.set_extension(ext);
-    return format!("{}/{}", directory, path.file_name().unwrap().to_str().unwrap());
+    format!("{}/{}", directory, path.file_name().unwrap().to_str().unwrap())
 }
 
 #[inline]
 pub fn is_cpp_source_file(file : &str) -> bool
 {
-    return file.ends_with(".cpp") || file.ends_with(".cxx") || file.ends_with(".cc");
+    file.ends_with(".cpp") || file.ends_with(".cxx") || file.ends_with(".cc")
 }
 
 #[inline]
 pub fn is_c_source_file(file : &str) -> bool
 {
-    return file.ends_with(".c");
+    file.ends_with(".c")
 }
 
 // dont support msvc at the moment
 #[inline]
 pub fn is_gcc_or_clang(compiler_name : &str) -> bool
 {
-    return match compiler_name {
-        "gcc"|"g++"|"clang"|"clang++" => true,
-        _ => false
-    };
+    matches!(compiler_name, "gcc"|"g++"|"clang"|"clang++")
 }
 
 #[inline]
 pub fn use_default_compiler_configuration(compiler_args : &Option<Vec<String>>) -> bool
 {
-    if compiler_args.is_some() {
-        if !compiler_args.as_ref().unwrap().is_empty() {
-            return false;
-        }
+    if compiler_args.is_some() && !compiler_args.as_ref().unwrap().is_empty() {
+        return false;
     }
-    return true;
+    true
 }
 
 /// Selects a default compiler, should be called only if a compiler has not
@@ -63,22 +58,22 @@ pub fn select_default_compiler() -> &'static str
 {
     if match Command::new("gcc").output() {
         Ok(_) => true,
-        Err(e) => if let ErrorKind::NotFound = e.kind() { false } else { true }
+        Err(e) => !matches!(e.kind(), ErrorKind::NotFound)
     } { return "gcc" }
 
     if match Command::new("clang").output() {
         Ok(_) => true,
-        Err(e) => if let ErrorKind::NotFound = e.kind() { false } else { true }
+        Err(e) => !matches!(e.kind(), ErrorKind::NotFound)
     } { return "clang" }
 
     if match Command::new("g++").output() {
         Ok(_) => true,
-        Err(e) => if let ErrorKind::NotFound = e.kind() { false } else { true }
+        Err(e) => !matches!(e.kind(), ErrorKind::NotFound)
     } { return "g++" }
 
     if match Command::new("clang++").output() {
         Ok(_) => true,
-        Err(e) => if let ErrorKind::NotFound = e.kind() { false } else { true }
+        Err(e) => !matches!(e.kind(), ErrorKind::NotFound)
     } { return "clang++" }
 
     eprintln!("{}", cformat!("<bold><red>error</red>:</bold> Could not find a default compiler to use.
@@ -120,5 +115,5 @@ pub fn compile_to_object_files(source_files : &Vec<String>,
         }
     });
     // TODO: If the compilation failed, terminate the program (only do this after updating the build table)
-    return true;
+    true
 }
