@@ -5,7 +5,7 @@ use once_cell::sync::Lazy;
 
 use crate::{build::Build, walker, SOURCE_DIRECTORY, buildtable::{BUILD_TABLE_DIRECTORY, BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY, BUILD_TABLE_FILE}, test::{Tools, modify_file_time, self}};
 
-const SAMPLES : usize = 3;
+const SAMPLES : usize = 10000;
 const BENCHMARK_LOG_FILE_PATH : &str = "../benchmark.log";
 const OLD_LOG_FILE_PATH : &str = "../old-benchmark.log";
 const LOG_DIRECTORY : &str = "../logs";
@@ -165,7 +165,6 @@ fn quikc_benchmark() -> Result<(), Box<dyn std::error::Error>>
     test::test_all()?;
     
     const BENCHMARK_DIR : &str = "./benchmark";
-    println!("{}", env::current_dir()?.as_os_str().to_str().unwrap());
 
     // cd into benchmark directory and remove the build table directory so we can recompile
     // from scratch
