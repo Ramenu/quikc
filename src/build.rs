@@ -35,7 +35,8 @@ struct Linker
 struct Misc
 {
     optimization_level : Option<u32>,
-    static_analysis_enabled : Option<bool>
+    static_analysis_enabled : Option<bool>,
+    toggle_iwyu : Option<bool> // Not recommended to be toggled as it contains a lot of bugs
 }
 
 #[derive(Deserialize, PartialEq, Default)]
@@ -106,9 +107,13 @@ impl Build
             else {
                 config.compiler.compiler = toml_config.compiler.as_ref().unwrap().compiler.to_owned();
             }
+            let config_ref = toml_config.compiler.as_ref().unwrap();
             config.compiler.args = toml_config.compiler.as_ref().unwrap().args.to_owned();
-            config.compiler.cppstd = toml_config.compiler.as_ref().unwrap().cppstd.to_owned();
-            config.compiler.cstd = toml_config.compiler.as_ref().unwrap().cstd.to_owned();
+
+            config.compiler.cppstd = Some(if config_ref.cppstd.is_none() {"-std=c++20".to_string()} 
+                                          else {format!("-std={}", config_ref.cppstd.as_ref().unwrap())});
+            config.compiler.cstd = Some(if config_ref.cstd.is_none() {"-std=c17".to_string()} 
+                                        else {format!("-std={}", config_ref.cstd.as_ref().unwrap())});
         }
         else {
             config.compiler.compiler = select_default_compiler().to_string();
@@ -131,7 +136,8 @@ impl Build
             Some(misc) => *misc,
             None => Misc {
                 optimization_level : None,
-                static_analysis_enabled : None
+                static_analysis_enabled : None,
+                toggle_iwyu : None
             }
         };
 
@@ -163,22 +169,10 @@ impl Build
         let is_c_source_file = compiler::is_c_source_file(file);
 
         if !is_c_source_file {
-            // specify c++ standard if given
-            if self.compiler.cppstd.is_some() {
-                cmd.arg(format!("-std={}", self.compiler.cppstd.as_ref().unwrap()));
-            }
-            else {
-                cmd.arg("-std=c++20"); // default to c++20
-            }
+            cmd.arg(self.compiler.cppstd.as_ref().unwrap());
         }
         else {
-            // specify c standard if given
-            if self.compiler.cstd.is_some() {
-                cmd.arg(format!("-std={}", self.compiler.cstd.as_ref().unwrap()));
-            }
-            else {
-                cmd.arg("-std=c17"); // default to c17
-            }
+            cmd.arg(self.compiler.cstd.as_ref().unwrap());
         }
 
         // If the default configuration variable is set to true, use the default arguments
@@ -273,6 +267,16 @@ impl Build
     }
 
     #[inline]
+    pub fn get_standard(&self, file_name : &str) -> &String {
+        if compiler::is_c_source_file(file_name) {
+            self.compiler.cstd.as_ref().unwrap()
+        }
+        else {
+            self.compiler.cppstd.as_ref().unwrap()
+        }
+    }
+
+    #[inline]
     pub fn get_package_name(&self) -> &String {
         &self.package.name
     }
@@ -285,6 +289,11 @@ impl Build
     #[inline]
     pub fn get_compiler_name(&self) -> &String {
         &self.compiler.compiler
+    }
+
+    #[inline]
+    pub fn iwyu_enabled(&self) -> bool {
+        self.misc.toggle_iwyu.unwrap_or(false)
     }
 
 }

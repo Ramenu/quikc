@@ -1,4 +1,4 @@
-use std::{path::PathBuf, process::{Command}, io::ErrorKind};
+use std::{path::PathBuf, process::{Command, Stdio}, io::ErrorKind};
 use color_print::{cprintln, cformat};
 use rayon::prelude::*;
 use std::path::Path;
@@ -91,15 +91,33 @@ pub fn compile_to_object_files(source_files : &Vec<String>,
         let out = to_output_file(&mut out_file_path, BUILD_TABLE_OBJECT_FILE_DIRECTORY, "o");
         let dep_name = to_output_file(&mut out_file_path, BUILD_TABLE_DEPS_DIRECTORY, "d");
 
+        // Generate the file's dependencies
         Command::new(build_info.get_compiler_name())
                 .args([INCLUDE_PATH_FLAG, file, "-MM", "-o", &dep_name])
                 .spawn()
-                .expect("Failed to spawn process");
-        
+                .expect("Failed to generate dependencies");
+
+        // 'Include what you use' is currently a experimental feature, and not toggled by default 
+        // since it can probably break programs
+        if build_info.iwyu_enabled() {
+            let standard = build_info.get_standard(file);
+            let iwyu_cmd = Command::new("include-what-you-use")
+                                          .args([standard, INCLUDE_PATH_FLAG, file])
+                                          .stdout(Stdio::piped())
+                                          .spawn()
+                                          .expect("Failed to spawn 'include-what-you-use'");
+
+            Command::new("iwyu-fix-includes")
+                    .stdin(iwyu_cmd.stdout.unwrap())
+                    .spawn()
+                    .expect("Failed to spawn 'iwyu-fix-includes'");
+        }
+
+        // Compile the file with the appropriate flags specified in the build
         let output = build_info.execute_compiler_with_build_info(file)
                                        .args([INCLUDE_PATH_FLAG, file, "-c", "-o", &out])
                                        .output()
-                                       .expect("Failed to execute process");
+                                       .expect("Failed to execute compiler");
         
         if !output.status.success() {
             let s = String::from_utf8_lossy(&output.stderr);
