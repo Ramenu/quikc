@@ -98,7 +98,8 @@ pub fn compile_to_object_files(source_files : &Vec<String>,
                 .expect("Failed to generate dependencies");
 
         // 'Include what you use' is currently a experimental feature, and not toggled by default 
-        // since it can probably break programs
+        // since it can probably cause the program to not compile
+        #[cfg(feature = "quikc-nightly")]
         if build_info.iwyu_enabled() {
             let standard = build_info.get_standard(file);
             let iwyu_cmd = Command::new("include-what-you-use")
@@ -109,6 +110,7 @@ pub fn compile_to_object_files(source_files : &Vec<String>,
 
             Command::new("iwyu-fix-includes")
                     .stdin(iwyu_cmd.stdout.unwrap())
+                    .stdout(Stdio::null())
                     .spawn()
                     .expect("Failed to spawn 'iwyu-fix-includes'");
         }

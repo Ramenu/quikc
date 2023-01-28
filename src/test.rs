@@ -3,7 +3,7 @@ use std::{process::Command, fs::{self}, env, path::Path, time::{SystemTime}, col
 use color_print::cprintln;
 use filetime::{set_file_mtime};
 
-use crate::{build::{BUILD_CONFIG_FILE, Build}, SOURCE_DIRECTORY, compiler::{INCLUDE_PATH, compile_to_object_files, is_c_source_file, is_cpp_source_file, is_header_file}, buildtable::{BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY, get_duration_since_modified}, walker, linker::link_files};
+use crate::{build::{BUILD_CONFIG_FILE, Build}, SOURCE_DIRECTORY, compiler::{INCLUDE_PATH, compile_to_object_files, is_c_source_file, is_cpp_source_file, is_header_file}, buildtable::{BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY, get_duration_since_modified}, walker, linker::link_files, QuikcFlags};
 
 const TOTAL_SOURCE_FILES : usize = 3;
 const TEST_FILES_DIR : &str = "../testfiles";
@@ -26,7 +26,7 @@ impl Tools
 {
     pub fn new() -> Tools
     {
-        let build_config = Build::new();
+        let build_config = Build::new(QuikcFlags::NONE);
         let mut old_table = HashMap::new();
         let source_files = Vec::new();
         let build_table = BuildTable::new(&mut old_table);

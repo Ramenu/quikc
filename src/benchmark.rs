@@ -3,7 +3,7 @@ use std::{time::Instant, env, path::{Path, PathBuf}, fs::{File, self}, io::Write
 use color_print::cprintln;
 use once_cell::sync::Lazy;
 
-use crate::{build::Build, walker, SOURCE_DIRECTORY, buildtable::{BUILD_TABLE_DIRECTORY, BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY, BUILD_TABLE_FILE}, test::{Tools, modify_file_time, self}};
+use crate::{build::Build, walker, SOURCE_DIRECTORY, buildtable::{BUILD_TABLE_DIRECTORY, BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY, BUILD_TABLE_FILE}, test::{Tools, modify_file_time, self}, QuikcFlags};
 
 const SAMPLES : usize = 10000;
 const BENCHMARK_LOG_FILE_PATH : &str = "../benchmark.log";
@@ -171,7 +171,7 @@ fn quikc_benchmark() -> Result<(), Box<dyn std::error::Error>>
     env::set_current_dir(BENCHMARK_DIR)?;
     reset()?;
 
-    benchmark_fn("time to initialize build configuration", &mut || {Build::new();});
+    benchmark_fn("time to initialize build configuration", &mut || {Build::new(QuikcFlags::NONE);});
     benchmark_fn("time to initialize build table", &mut || {BuildTable::new(&mut HashMap::new());});
 
     // Benchmark first time retrieving source file speed
