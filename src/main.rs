@@ -3,6 +3,7 @@ use std::{path::Path, collections::HashMap};
 use build::Build;
 use color_print::cprintln;
 use bitflags::bitflags;
+use once_cell::sync::OnceCell;
 
 
 mod compiler;
@@ -12,6 +13,9 @@ mod linker;
 mod defaultbuild;
 mod build;
 mod version;
+mod logger;
+mod example;
+
 #[cfg(test)]
     mod test;
 #[cfg(test)]
@@ -26,10 +30,21 @@ bitflags! {
     }
 }
 
+static INSTANCE : OnceCell<QuikcFlags> = OnceCell::new();
+
+pub fn flags() -> QuikcFlags {
+    *INSTANCE.get().unwrap()
+}
+
+#[test]
+pub fn set_flags() {
+    INSTANCE.set(QuikcFlags::NONE).unwrap();
+}
+
 fn main() 
 {
-    let quikc_flags = parse_args();
-    let build_config = Build::new(quikc_flags);
+    INSTANCE.set(parse_args()).unwrap();
+    let build_config = Build::new();
     let mut old_table = HashMap::new();
     let mut source_files = Vec::new();
     let mut build_table = buildtable::BuildTable::new(&mut old_table);
