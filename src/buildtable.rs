@@ -299,7 +299,7 @@ impl Drop for BuildTable
         if self.any_dependencies_changed {
             let mut f = File::create(BUILD_TABLE_FILE).expect("Failed to create build table file");
             for (k, v) in &self.table {
-                f.write_all(format!("{}={}\n", k, v).as_bytes()).expect("Failed to write to build table file");
+                f.write_all(format!("{k}={v}\n").as_bytes()).expect("Failed to write to build table file");
             }
         }
     }
