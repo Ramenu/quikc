@@ -3,7 +3,7 @@ use std::{time::Instant, env, path::{Path, PathBuf}, fs::{File, self}, io::Write
 use color_print::cprintln;
 use once_cell::sync::Lazy;
 
-use crate::{build::Build, walker, SOURCE_DIRECTORY, buildtable::{BUILD_TABLE_DIRECTORY, BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY, BUILD_TABLE_FILE}, test::{Tools, modify_file_time, self}, QuikcFlags};
+use crate::{build::Build, walker, SOURCE_DIRECTORY, buildtable::{BUILD_TABLE_DIRECTORY, BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY, BUILD_TABLE_FILE}, test::{Tools, modify_file_time, self}};
 
 const SAMPLES : usize = 10000;
 const BENCHMARK_LOG_FILE_PATH : &str = "../benchmark.log";
@@ -24,7 +24,7 @@ static mut BENCHMARK_LOG_FILE : once_cell::sync::Lazy<File> = Lazy::new(|| {
     let hi = paths.count() + 1;
     
     if benchmark_log_file_exists {
-        fs::copy(BENCHMARK_LOG_FILE_PATH, format!("{}/old-benchmark{}.log", LOG_DIRECTORY, hi)).unwrap();
+        fs::copy(BENCHMARK_LOG_FILE_PATH, format!("{LOG_DIRECTORY}/old-benchmark{hi}.log")).unwrap();
     }
     File::create(BENCHMARK_LOG_FILE_PATH).expect("Failed to create/open benchmark log file")
 });
@@ -32,8 +32,8 @@ static mut BENCHMARK_LOG_FILE : once_cell::sync::Lazy<File> = Lazy::new(|| {
 fn print_benchmark_results(task_msg : &str, mean : f64, std : f64)
 {
     unsafe {
-        BENCHMARK_LOG_FILE.write(format!("({}) {} 'mean': {} milliseconds\n", SAMPLES, task_msg, mean).as_bytes()).unwrap();
-        BENCHMARK_LOG_FILE.write(format!("({}) {} 'std': {:.5}\n\n", SAMPLES, task_msg, std).as_bytes()).unwrap();
+        BENCHMARK_LOG_FILE.write_all(format!("({SAMPLES}) {task_msg} 'mean': {mean} milliseconds\n").as_bytes()).unwrap();
+        BENCHMARK_LOG_FILE.write_all(format!("({SAMPLES}) {task_msg} 'std': {std:.5}\n\n").as_bytes()).unwrap();
     }
 }
 

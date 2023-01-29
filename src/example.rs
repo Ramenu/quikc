@@ -1,4 +1,4 @@
-use std::{fs::{OpenOptions, File}, io::{Read, self, BufReader, BufRead}};
+use std::{fs::{File}, io::{self, BufReader, BufRead}};
 
 use color_print::cprintln;
 

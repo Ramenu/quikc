@@ -3,7 +3,7 @@ use std::{process::Command, fs::{self}, env, path::Path, time::{SystemTime}, col
 use color_print::cprintln;
 use filetime::{set_file_mtime};
 
-use crate::{build::{BUILD_CONFIG_FILE, Build}, SOURCE_DIRECTORY, compiler::{INCLUDE_PATH, compile_to_object_files, is_c_source_file, is_cpp_source_file, is_header_file}, buildtable::{BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY, get_duration_since_modified}, walker, linker::link_files, QuikcFlags, set_flags};
+use crate::{build::{BUILD_CONFIG_FILE, Build}, SOURCE_DIRECTORY, compiler::{INCLUDE_PATH, compile_to_object_files, is_c_source_file, is_cpp_source_file, is_header_file}, buildtable::{BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY, get_duration_since_modified}, walker, linker::link_files, set_flags};
 
 const TOTAL_SOURCE_FILES : usize = 3;
 const TEST_FILES_DIR : &str = "../testfiles";
@@ -43,13 +43,13 @@ impl Tools
 #[inline]
 fn get_source_file(file_name : &str) -> String
 {
-    format!("{}/{}", SOURCE_DIRECTORY, file_name)
+    format!("{SOURCE_DIRECTORY}/{file_name}")
 }
 
 #[inline]
 fn get_dependency_file(file_name : &str) -> String
 {
-    format!("{}/{}", INCLUDE_PATH, file_name)
+    format!("{INCLUDE_PATH}/{file_name}")
 }
 
 /// This function doesn't literally modify the file, but it
@@ -87,7 +87,7 @@ pub fn initialize_project(setup_additional_files : bool,
                       settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
 {
     const INVALID_FILE_NAME : &str = "invalid.c";
-    let invalid_file = format!("{}/invalid/{}", TEST_FILES_DIR, INVALID_FILE_NAME);
+    let invalid_file = format!("{TEST_FILES_DIR}/invalid/{INVALID_FILE_NAME}");
 
     to_test_directory()?;
 
@@ -120,7 +120,7 @@ pub fn initialize_project(setup_additional_files : bool,
         }
 
         if with_invalid_file {
-            fs::copy(invalid_file, format!("{}/{}", SOURCE_DIRECTORY, INVALID_FILE_NAME))?;
+            fs::copy(invalid_file, format!("{SOURCE_DIRECTORY}/{INVALID_FILE_NAME}"))?;
         }
     }
 
@@ -197,7 +197,7 @@ fn test_quikc_init(settings : &Settings) ->  Result<(), Box<dyn std::error::Erro
     // are for testing purposes only, which is why only 'source_file' is checked
     initialize_project(false, false, settings)?;
 
-    let source_file = format!("{}/main.c", SOURCE_DIRECTORY);
+    let source_file = format!("{SOURCE_DIRECTORY}/main.c");
 
     assert!(Path::new(BUILD_CONFIG_FILE).is_file());
     assert!(Path::new(SOURCE_DIRECTORY).is_dir());
@@ -216,7 +216,7 @@ fn test_first_time_compilation(settings : &Settings) -> Result<(), Box<dyn std::
 
     assert_eq!(tools.source_files.len(), TOTAL_SOURCE_FILES);
 
-    let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
+    let compilation_success = compile_to_object_files(&tools.source_files, &tools.build_config);
     assert!(compilation_success);
     assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_SOURCE_FILES);
 
@@ -244,7 +244,7 @@ fn test_recompilation(settings : &Settings) -> Result<(), Box<dyn std::error::Er
 
         // Should be only 1 file that was added, since we modified one file only
         assert_eq!(tools.source_files.len(), 1); 
-        let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
+        let compilation_success = compile_to_object_files(&tools.source_files, &tools.build_config);
 
         assert!(compilation_success);
         assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_SOURCE_FILES);
@@ -264,7 +264,7 @@ fn test_recompilation(settings : &Settings) -> Result<(), Box<dyn std::error::Er
         // 2 source files depend on the header
         assert_eq!(tools.source_files.len(), 2);
 
-        let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
+        let compilation_success = compile_to_object_files(&tools.source_files, &tools.build_config);
         assert!(compilation_success);
         assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_SOURCE_FILES);
 
@@ -289,7 +289,7 @@ fn test_invalid_file_recompiles(settings : &Settings) -> Result<(), Box<dyn std:
         get_src_files(&mut tools);
 
         assert_eq!(tools.source_files.len(), TOTAL_FILES);
-        let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
+        let compilation_success = compile_to_object_files(&tools.source_files, &tools.build_config);
 
         // Compilation should have failed since the invalid file has a error in it
         assert!(!compilation_success); 
@@ -314,7 +314,7 @@ fn test_recompile_after_config_change(settings : &Settings) -> Result<(), Box<dy
 {
     test_first_time_compilation(settings)?;
 
-    let build_config_file_new = format!("{}/{}", TEST_FILES_DIR, BUILD_CONFIG_FILE);
+    let build_config_file_new = format!("{TEST_FILES_DIR}/{BUILD_CONFIG_FILE}");
     fs::copy(build_config_file_new, BUILD_CONFIG_FILE)?;
 
     let mut tools = Tools::new();
@@ -322,7 +322,7 @@ fn test_recompile_after_config_change(settings : &Settings) -> Result<(), Box<dy
 
     // All of the source files should be recompiled since the build config file has been changed
     assert_eq!(tools.source_files.len(), TOTAL_SOURCE_FILES);
-    let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
+    let compilation_success = compile_to_object_files(&tools.source_files, &tools.build_config);
 
     assert!(compilation_success);
     assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_SOURCE_FILES);
@@ -349,11 +349,11 @@ fn test_recompile_after_deletion(settings : &Settings) -> Result<(), Box<dyn std
 
         assert_eq!(tools.source_files.len(), NUM_FILES_AFTER_DELETION);
 
-        let compilation_success = compile_to_object_files(&mut tools.source_files, &tools.build_config);
+        let compilation_success = compile_to_object_files(&tools.source_files, &tools.build_config);
 
         assert!(compilation_success);
         assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), NUM_FILES_AFTER_DELETION);
-        assert_eq!(tools.build_table.contains(format!("{}/{}", SOURCE_DIRECTORY, FILE_TO_BE_DELETED).as_str()), false);
+        assert!(!tools.build_table.contains(format!("{SOURCE_DIRECTORY}/{FILE_TO_BE_DELETED}").as_str()));
 
         let link_success = link_files(&tools.build_config);
         assert!(link_success);
@@ -400,8 +400,8 @@ fn test_compilation_after_dependency_deletion(settings : &Settings) -> Result<()
     let time_modified_mainc = fs::metadata(&mainc_source)?.modified()?;
     let time_modified_hic = fs::metadata(&hic_source)?.modified()?;
 
-    let mainc_no_deps = format!("{}/nondeps/main.c", TEST_FILES_DIR);
-    let hic_no_deps = format!("{}/nondeps/hi.c", TEST_FILES_DIR);
+    let mainc_no_deps = format!("{TEST_FILES_DIR}/nondeps/main.c");
+    let hic_no_deps = format!("{TEST_FILES_DIR}/nondeps/hi.c");
 
 
     fs::copy(mainc_no_deps, &mainc_source)?;
