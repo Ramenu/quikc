@@ -4,7 +4,8 @@ pub const VERSIONS : [&str; 1] = [
     concatcp!("0", ".", MINOR_VERSIONS[0], ".", PATCH_VERSIONS[0])
 ];
 
-pub const MINOR_VERSIONS : [&str; 1] = [
+pub const MINOR_VERSIONS : [&str; 2] = [
+    "2",
     "1"
 ];
 
