@@ -171,7 +171,7 @@ fn quikc_benchmark() -> Result<(), Box<dyn std::error::Error>>
     env::set_current_dir(BENCHMARK_DIR)?;
     reset()?;
 
-    benchmark_fn("time to initialize build configuration", &mut || {Build::new(QuikcFlags::NONE);});
+    benchmark_fn("time to initialize build configuration", &mut || {Build::new();});
     benchmark_fn("time to initialize build table", &mut || {BuildTable::new(&mut HashMap::new());});
 
     // Benchmark first time retrieving source file speed
