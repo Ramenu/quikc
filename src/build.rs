@@ -1,8 +1,12 @@
 use std::{fs::{self}, process::Command, path::Path};
 use color_print::{cprintln, cformat};
 use serde_derive::Deserialize;
+#[cfg(feature = "quikc-nightly")] 
+    use crate::example;
+#[cfg(feature = "quikc-nightly")] 
+    use crate::logger;
 
-use crate::{defaultbuild::{GCC_COMPILER_NONEXCLUSIVE_WARNINGS, GCC_COMPILER_C_EXCLUSIVE_WARNINGS, GCC_COMPILER_CPP_DIALECT_OPTIONS, GCC_COMPILER_CPP_EXCLUSIVE_WARNINGS, GCC_STATIC_ANALYSIS_OPTIONS, GCC_AND_CLANG_DIALECT_OPTIONS, CLANG_COMPILER_NONEXCLUSIVE_WARNINGS, CLANG_COMPILER_CPP_WARNINGS, GCC_AND_CLANG_OPTIMIZATION_OPTIONS, GCC_AND_CLANG_ENHANCED_OPTIMIZATION_OPTIONS, GCC_AND_CLANG_LINKER_OPTIONS, GCC_AND_CLANG_CPP_DIALECT_OPTIONS}, compiler::{self, use_default_compiler_configuration, select_default_compiler, INCLUDE_PATH}, buildtable::{BUILD_TABLE_OBJECT_FILE_DIRECTORY, BUILD_TABLE_DIRECTORY, BUILD_TABLE_FILE}, linker, SOURCE_DIRECTORY, QuikcFlags};
+use crate::{defaultbuild::{GCC_COMPILER_NONEXCLUSIVE_WARNINGS, GCC_COMPILER_C_EXCLUSIVE_WARNINGS, GCC_COMPILER_CPP_DIALECT_OPTIONS, GCC_COMPILER_CPP_EXCLUSIVE_WARNINGS, GCC_STATIC_ANALYSIS_OPTIONS, GCC_AND_CLANG_DIALECT_OPTIONS, CLANG_COMPILER_NONEXCLUSIVE_WARNINGS, CLANG_COMPILER_CPP_WARNINGS, GCC_AND_CLANG_OPTIMIZATION_OPTIONS, GCC_AND_CLANG_ENHANCED_OPTIMIZATION_OPTIONS, GCC_AND_CLANG_LINKER_OPTIONS, GCC_AND_CLANG_CPP_DIALECT_OPTIONS}, compiler::{self, use_default_compiler_configuration, select_default_compiler, INCLUDE_PATH}, buildtable::{BUILD_TABLE_OBJECT_FILE_DIRECTORY, BUILD_TABLE_DIRECTORY, BUILD_TABLE_FILE}, linker, SOURCE_DIRECTORY, QuikcFlags, flags};
 
 pub const BUILD_CONFIG_FILE : &str = "./Build.toml";
 pub const BUILD_CONFIG_CACHE_FILE : &str = "./buildinfo/.buildcache";
@@ -16,19 +20,23 @@ struct Package
 }
 
 #[derive(Deserialize, PartialEq, Default)]
-struct Compiler
+pub struct Compiler
 {
     compiler : String,
     args : Option<Vec<String>>,
     cstd : Option<String>,
-    cppstd : Option<String>
+    cppstd : Option<String>,
+    #[cfg(feature = "quikc-nightly")]
+    append_args : Option<bool>
 }
 
 #[derive(Deserialize, PartialEq, Default)]
-struct Linker
+pub struct Linker
 {
     args : Option<Vec<String>>,
-    libraries : Option<Vec<String>>
+    libraries : Option<Vec<String>>,
+    #[cfg(feature = "quikc-nightly")]
+    append_args : Option<bool>
 }
 
 #[derive(Deserialize, PartialEq, Default, Clone, Copy)]
@@ -68,7 +76,7 @@ fn warning(message : &str)
 impl Build
 {
     #[inline]
-    pub fn new(flags: QuikcFlags) -> Build
+    pub fn new() -> Build
     {
         // Include path and source directory are required as that is where the compiler will look for files
         if !Path::new(INCLUDE_PATH).exists() {
@@ -108,7 +116,7 @@ impl Build
         if toml_config.compiler.is_some() {
             if toml_config.compiler.as_ref().unwrap().compiler.is_empty() {
                 config.compiler.compiler = select_default_compiler().to_string();
-                if flags&QuikcFlags::HIDE_VERBOSE_OUTPUT == QuikcFlags::NONE {
+                if flags()&QuikcFlags::HIDE_VERBOSE_OUTPUT == QuikcFlags::NONE {
                     cprintln!("<bold><yellow>note</yellow>:</bold> compiler not specified in 'Build.toml', using {} as default",
                             config.compiler.compiler);
                 }
@@ -123,10 +131,13 @@ impl Build
                                           else {format!("-std={}", config_ref.cppstd.as_ref().unwrap())});
             config.compiler.cstd = Some(if config_ref.cstd.is_none() {"-std=c17".to_string()} 
                                         else {format!("-std={}", config_ref.cstd.as_ref().unwrap())});
+            #[cfg(feature = "quikc-nightly")] {
+                config.compiler.append_args = toml_config.compiler.as_ref().unwrap().append_args;
+            }
         }
         else {
             config.compiler.compiler = select_default_compiler().to_string();
-            if flags&QuikcFlags::HIDE_VERBOSE_OUTPUT == QuikcFlags::NONE {
+            if flags()&QuikcFlags::HIDE_VERBOSE_OUTPUT == QuikcFlags::NONE {
                 cprintln!("<bold><yellow>note</yellow>:</bold> compiler not specified in 'Build.toml', using {} as default",
                         config.compiler.compiler);
             }
@@ -157,20 +168,42 @@ impl Build
             Some(linker) => linker,
             None => Linker {
                 args : None,
-                libraries : None
+                libraries : None,
+                #[cfg(feature = "quikc-nightly")]
+                append_args : None
             }
         };
 
         config.package.name = toml_config.package.name;
         config.package.debug_build = toml_config.package.debug_build;
         
-        // If using nightly features, notify the user tha
+        // If using nightly features, notify the user that some of the features can break compilation
         #[cfg(feature = "quikc-nightly")]
         {
-            if flags&QuikcFlags::HIDE_VERBOSE_OUTPUT == QuikcFlags::NONE {
+            if flags()&QuikcFlags::HIDE_VERBOSE_OUTPUT == QuikcFlags::NONE {
                 if let Some(true) = config.misc.toggle_iwyu {
                     warning("'include what you use' WILL refactor your code to only include the headers that are needed.\n\
                             This may cause your code to not compile. For more information see: https://github.com/include-what-you-use/include-what-you-use");
+                }
+                if let Some(true) = config.compiler.append_args {
+                    let args_specified = config.compiler.args().is_some();
+
+                    // give a warning here as this can override the default configuration (which the user probably
+                    // did not mean to do)
+                    if !args_specified && (flags()&QuikcFlags::HIDE_VERBOSE_OUTPUT == QuikcFlags::NONE) {
+                        logger::warning("append_args is set to true, but no args field for the compiler could be found. Try adding this line:");
+                        example::print_missing_field("args = []", example::FieldType::CompilerArgs);
+                    }
+                }
+                if let Some(true) = config.linker.append_args {
+                    let args_specified = config.linker.args.is_some();
+
+                    // give a warning here as this can override the default configuration (which the user probably
+                    // did not mean to do)
+                    if !args_specified && (flags()&QuikcFlags::HIDE_VERBOSE_OUTPUT == QuikcFlags::NONE) {
+                        logger::warning("append_args is set to true, but no args field for the linker could be found. Try adding this line:");
+                        example::print_missing_field("args = []", example::FieldType::LinkerArgs);
+                    }
                 }
             }
         }
@@ -199,7 +232,7 @@ impl Build
 
         // If the default configuration variable is set to true, use the default arguments
         // (note this doesnt support MSVC)
-        if use_default_compiler_configuration(compiler_args) {
+        if use_default_compiler_configuration(&self.compiler) {
             if !is_c_source_file {
                 cmd.args(GCC_AND_CLANG_CPP_DIALECT_OPTIONS);
             }
@@ -256,11 +289,21 @@ impl Build
                 cprintln!("<bold><yellow>note:</yellow></bold> cannot use default configuration because
                            compiler vendor is unknown, please supply your own flags.");
             }
+
+            // append arguments if the flag is set
+            #[cfg(feature = "quikc-nightly")]
+            {
+                if let Some(true) = self.misc.toggle_iwyu {
+                    cmd.args(compiler_args.as_ref().unwrap().iter());
+                }
+            }
             return cmd;
         }
 
         // If default configuration is not set, then use the user's custom flags
-        cmd.args(compiler_args.as_ref().unwrap().iter());
+        if let Some(compiler_args) = compiler_args {
+            cmd.args(compiler_args.iter());
+        }
         cmd
 
     }
@@ -271,10 +314,17 @@ impl Build
 
         let mut cmd = Command::new(&self.compiler.compiler);
 
-        if linker::use_default_linker_configuration(&self.linker.args) {
+        if linker::use_default_linker_configuration(&self.linker) {
             // apply linker optimizations on release builds only
             if !self.package.debug_build {
                 cmd.args(GCC_AND_CLANG_LINKER_OPTIONS);
+            }
+            // append arguments if the flag is set
+            #[cfg(feature = "quikc-nightly")]
+            {
+                if let Some(true) = self.linker.append_args {
+                    cmd.args(self.linker.args.as_ref().unwrap().iter());
+                }
             }
         }
         else {
@@ -319,4 +369,45 @@ impl Build
         self.misc.toggle_iwyu.unwrap_or(false)
     }
 
+}
+
+
+impl Compiler
+{
+    pub fn args(&self) -> Option<&Vec<String>> {
+        self.args.as_ref()
+    }
+
+    pub fn cstd(&self) -> &String {
+        self.cstd.as_ref().unwrap()
+    }
+
+    pub fn cppstd(&self) -> &String {
+        self.cppstd.as_ref().unwrap()
+    }
+
+    pub fn compiler(&self) -> &String {
+        &self.compiler
+    }
+
+    #[cfg(feature = "quikc-nightly")]
+    pub fn append_args(&self) -> &Option<bool> {
+        &self.append_args
+    }
+}
+
+impl Linker
+{
+    pub fn args(&self) -> Option<&Vec<String>> {
+        self.args.as_ref()
+    }
+
+    pub fn libraries(&self) -> Option<&Vec<String>> {
+        self.libraries.as_ref()
+    }
+
+    #[cfg(feature = "quikc-nightly")]
+    pub fn append_args(&self) -> &Option<bool> {
+        &self.append_args
+    }
 }

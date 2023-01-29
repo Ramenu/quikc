@@ -2,8 +2,19 @@ use std::{path::PathBuf, process::{Command}, io::ErrorKind};
 use color_print::{cprintln, cformat};
 use rayon::prelude::*;
 use std::path::Path;
+#[cfg(feature = "quikc-nightly")] 
+    use std::process::Stdio;
+#[cfg(feature = "quikc-nightly")] 
+    use crate::example;
+#[cfg(feature = "quikc-nightly")] 
+    use crate::logger;
+#[cfg(feature = "quikc-nightly")] 
+    use crate::flags;
+#[cfg(feature = "quikc-nightly")]
+    use crate::QuikcFlags;
 
-use crate::{buildtable::{BUILD_TABLE_OBJECT_FILE_DIRECTORY, BUILD_TABLE_DEPS_DIRECTORY}, build::{Build}};
+
+use crate::{buildtable::{BUILD_TABLE_OBJECT_FILE_DIRECTORY, BUILD_TABLE_DEPS_DIRECTORY}, build::{Build, Compiler}};
 
 pub const INCLUDE_PATH_FLAG : &str = "-I./include";
 pub const INCLUDE_PATH : &str = "./include";
@@ -43,12 +54,15 @@ pub fn is_gcc_or_clang(compiler_name : &str) -> bool
 }
 
 #[inline]
-pub fn use_default_compiler_configuration(compiler_args : &Option<Vec<String>>) -> bool
+pub fn use_default_compiler_configuration(compiler : &Compiler) -> bool
 {
-    if compiler_args.is_some() && !compiler_args.as_ref().unwrap().is_empty() {
-        return false;
+    #[cfg(feature = "quikc-nightly")] 
+    {
+        if let Some(true) = compiler.append_args() {
+            return compiler.args().is_some();
+        }
     }
-    true
+    compiler.args().is_none()
 }
 
 /// Selects a default compiler, should be called only if a compiler has not
@@ -77,7 +91,7 @@ pub fn select_default_compiler() -> &'static str
     } { return "clang++" }
 
     eprintln!("{}", cformat!("<bold><red>error</red>:</bold> Could not find a default compiler to use.
-                            Please specify your own in the 'build.toml' file"));
+                            Please specify your own in the 'Build.toml' file"));
     std::process::exit(1);
 }
 
@@ -134,6 +148,5 @@ pub fn compile_to_object_files(source_files : &Vec<String>,
             std::process::exit(1);
         }
     });
-    // TODO: If the compilation failed, terminate the program (only do this after updating the build table)
     true
 }

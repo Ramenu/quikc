@@ -2,15 +2,27 @@ use std::{fs};
 
 use color_print::{cformat, cprintln};
 
-use crate::{buildtable::BUILD_TABLE_OBJECT_FILE_DIRECTORY, build::Build};
+#[cfg(feature = "quikc-nightly")] 
+    use crate::example;
+#[cfg(feature = "quikc-nightly")] 
+    use crate::logger;
+#[cfg(feature = "quikc-nightly")] 
+    use crate::flags;
+#[cfg(feature = "quikc-nightly")]
+    use crate::QuikcFlags;
+
+use crate::{buildtable::BUILD_TABLE_OBJECT_FILE_DIRECTORY, build::{Build, Linker}};
 
 #[inline]
-pub fn use_default_linker_configuration(linker_args : &Option<Vec<String>>) -> bool
+pub fn use_default_linker_configuration(linker : &Linker) -> bool
 {
-    if linker_args.is_some() && !linker_args.as_ref().unwrap().is_empty() {
-        return false;
+    #[cfg(feature = "quikc-nightly")]
+    {
+        if let Some(true) = linker.append_args() {
+            return linker.args().is_some();
+        }
     }
-    true
+    linker.args().is_none()
 }
 
 pub fn link_files(build_config : &Build) -> bool
