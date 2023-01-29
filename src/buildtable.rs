@@ -20,11 +20,11 @@ pub struct BuildTable
 #[inline]
 pub fn get_duration_since_modified(metadata : &Metadata) -> u64
 {
-    return (metadata.modified().unwrap().duration_since(UNIX_EPOCH).unwrap().as_millis()) as u64;
+    (metadata.modified().unwrap().duration_since(UNIX_EPOCH).unwrap().as_millis()) as u64
 }
 
 fn file_modified_since_last_build(source_file_path : &mut PathBuf, 
-                                  source_file_name : &String,
+                                  source_file_name : &str,
                                   is_header_file : bool,
                                   time : u64,
                                   old_table : &HashMap<String, u64>) -> bool
@@ -54,7 +54,7 @@ fn file_modified_since_last_build(source_file_path : &mut PathBuf,
         return false;
     }
 
-    return true;
+    true
 }
 
 
@@ -85,7 +85,7 @@ impl BuildTable
         // made and can simply just add the all header files to the table
         if !file_contents.is_empty() {
             for line in file_contents.lines() {
-                let split : Vec<&str> = line.split("=").collect();
+                let split : Vec<&str> = line.split('=').collect();
                 let key = split[0].to_string();
                 let value = split[1].parse::<u64>().unwrap();
                 
@@ -111,17 +111,20 @@ impl BuildTable
                 if path.is_file() {
                     let path_str = path.to_str().unwrap().to_string();
                     let is_header_file = compiler::is_header_file(&path_str);
+
                     // compiler doesnt show relative path sometimes so we need to address that
-                    let path_str_no_relative = if path_str.starts_with("./") { path_str[2..].to_string() } else { path_str };
+                    let path_str_no_relative = if let Some(stripped) = path_str.strip_prefix("./") 
+                        { stripped } else { &path_str };
+
                     if is_header_file {
                         let metadata = path.metadata().unwrap();
                         let duration = get_duration_since_modified(&metadata);
                         if file_modified_since_last_build(&mut path, 
-                                                                    &path_str_no_relative, 
+                                                                path_str_no_relative, 
                                                                     true,
                                                                     duration,
-                                                                        &old_table) {
-                            table.insert(path_str_no_relative, duration);
+                                                                        old_table) {
+                            table.insert(path_str_no_relative.to_string(), duration);
                             any_dependencies_changed = true;
                         }
                     }
@@ -136,21 +139,22 @@ impl BuildTable
                     let path_str = path.to_str().unwrap().to_string();
                     let is_header_file = compiler::is_header_file(&path_str);
                     // compiler doesnt show relative path sometimes so we need to address that
-                    let path_str_no_relative = if path_str.starts_with("./") { path_str[2..].to_string() } else { path_str };
+                    let path_str_no_relative = if let Some(stripped) = path_str.strip_prefix("./") 
+                        { stripped } else { &path_str };
                     if is_header_file {
                         let metadata = path.metadata().unwrap();
                         let duration = get_duration_since_modified(&metadata);
-                        table.insert(path_str_no_relative, duration);
+                        table.insert(path_str_no_relative.to_string(), duration);
                     }
                 }
             }
             any_dependencies_changed = true;
         }
 
-        return BuildTable {
+        BuildTable {
             table,
             any_dependencies_changed
-        };
+        }
     }
 
     pub fn get_file_dependencies(&self, source_file_name : &str) -> HashSet<String>
@@ -178,9 +182,9 @@ impl BuildTable
                                                         .collect::<HashSet<_>>();
                 }
             }
-            return HashSet::new();
+            HashSet::new()
         };
-        return dependencies();
+        dependencies()
 
     }
 
@@ -193,7 +197,7 @@ impl BuildTable
 
         // check if source file has changed (note we still need to check if any dependencies have changed to update
         // the build table)
-        let source_modified_duration = get_duration_since_modified(&source_file_path.metadata().unwrap()) as u64;
+        let source_modified_duration = get_duration_since_modified(&source_file_path.metadata().unwrap());
         if file_modified_since_last_build(source_file_path, 
                                                &source_file_name, 
                                                false, 
@@ -226,14 +230,14 @@ impl BuildTable
                                                                     duration,
                                                                         old_table) {
                                 recompile.store(true, Ordering::Relaxed);
-                                return;
+                                
                             }
                         }
                         else {
                             // dependency was deleted or moved so we need to recompile 
                             // the file
                             recompile.store(true, Ordering::Relaxed);
-                            return;
+                            
                         }
                     }
                 });
@@ -260,7 +264,7 @@ impl BuildTable
                 }
             }
         }
-        return false;
+        false
 
     }
 
@@ -281,7 +285,7 @@ impl BuildTable
     #[cfg(test)]
     pub fn contains(&self, path_str : &str) -> bool
     {
-        return self.table.contains_key(path_str);
+        self.table.contains_key(path_str)
     }
 
 }
@@ -295,7 +299,7 @@ impl Drop for BuildTable
         if self.any_dependencies_changed {
             let mut f = File::create(BUILD_TABLE_FILE).expect("Failed to create build table file");
             for (k, v) in &self.table {
-                f.write(format!("{}={}\n", k, v).as_bytes()).expect("Failed to write to build table file");
+                f.write_all(format!("{}={}\n", k, v).as_bytes()).expect("Failed to write to build table file");
             }
         }
     }

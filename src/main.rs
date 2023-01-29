@@ -29,7 +29,7 @@ fn main()
                                   &mut build_table,
                                   &mut old_table);
     if !source_files.is_empty() {
-        let compilation_successful = compiler::compile_to_object_files(&mut source_files, &build_config);
+        let compilation_successful = compiler::compile_to_object_files(&source_files, &build_config);
 
         if compilation_successful {
             link(&build_config);
@@ -47,9 +47,9 @@ fn main()
 
 fn link(build_config : &Build)
 {
-    let link_successful = linker::link_files(&build_config);
+    let link_successful = linker::link_files(build_config);
     if link_successful {
-        success(&build_config);
+        success(build_config);
     }
 }
 

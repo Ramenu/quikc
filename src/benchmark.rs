@@ -26,7 +26,7 @@ static mut BENCHMARK_LOG_FILE : once_cell::sync::Lazy<File> = Lazy::new(|| {
     if benchmark_log_file_exists {
         fs::copy(BENCHMARK_LOG_FILE_PATH, format!("{}/old-benchmark{}.log", LOG_DIRECTORY, hi)).unwrap();
     }
-    return File::create(BENCHMARK_LOG_FILE_PATH).expect("Failed to create/open benchmark log file");
+    File::create(BENCHMARK_LOG_FILE_PATH).expect("Failed to create/open benchmark log file")
 });
 
 fn print_benchmark_results(task_msg : &str, mean : f64, std : f64)
@@ -38,7 +38,7 @@ fn print_benchmark_results(task_msg : &str, mean : f64, std : f64)
 }
 
 fn benchmark_fn<T>(task_msg : &str, f : &mut T) 
-    where T : FnMut() -> ()
+    where T : FnMut()
 {
     let mut v = Vec::new();
 
@@ -136,7 +136,7 @@ fn compare_benchmarks(file_name : &str) -> Result<(), Box<dyn std::error::Error>
 
             print_diff(task_msg_mean, mean_diff, "ms");
             print_diff(task_msg_std, std_diff, "");
-            println!("");
+            println!();
             
         }
     }
@@ -208,7 +208,7 @@ fn quikc_benchmark() -> Result<(), Box<dyn std::error::Error>>
     {
         let tools = Tools::new();
         benchmark_fn("time to check for a file's dependencies", &mut || {
-            tools.build_table.get_file_dependencies(&tools.build_config.get_compiler_name());
+            tools.build_table.get_file_dependencies(tools.build_config.get_compiler_name());
         });
     }
 
