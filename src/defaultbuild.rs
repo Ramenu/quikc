@@ -138,8 +138,9 @@ pub const CLANG_COMPILER_CPP_WARNINGS : [&str; 18] = [
     "-Winconsistent-missing-destructor-override"
 ];
 
-pub const GCC_COMPILER_CPP_DIALECT_OPTIONS : [&str; 3] = [
+pub const GCC_COMPILER_CPP_DIALECT_OPTIONS : [&str; 4] = [
     "-fno-exceptions",
+    "-fno-unwind-tables",
     "-fimplicit-constexpr",
     "-fno-rtti"
 ];
