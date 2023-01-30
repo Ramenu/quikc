@@ -67,14 +67,12 @@ int main(void)\n\
         \"-nostdlib\",\n\
         \"-nostartfiles\",\n\
         \"-nodefaultlibs\",\n\
+        \"-nostdinc\",\n\
+        \"-fno-builtin\",\n\
+        \"-fno-stack-protector\",\n\
     ]\n\
     append_args = true"
                 
-            sourceFileCode = f"\
-int main(void)\n\
-{{\n\
-    return 0;\n\
-}}"
     else:
         if not createEmbeddedProject:
             buildTomlContents = f"\
@@ -104,17 +102,15 @@ int main()\n\
     args = [\n\
         \"-nolibc\",\n\
         \"-nostdlib\",\n\
-        \"-nostdlib++\",\n\
         \"-nostartfiles\",\n\
         \"-nodefaultlibs\",\n\
+        \"-nostdinc\",\n\
+        \"-nostdinc++\",\n\
+        \"-fno-builtin\",\n\
+        \"-fno-stack-protector\",\n\
     ]\n\
     append_args = true"
                 
-            sourceFileCode = f"\
-int main()\n\
-{{\n\
-    return 0;\n\
-}}"
 
     # this is only used for creating tests to make sure the script runs correctly
     if "--debug" in argv:
@@ -136,7 +132,7 @@ int main()\n\
         if not isdir(INCLUDE_DIR):
             mkdir(INCLUDE_DIR)
 
-        if not isfile(sourceFile):
+        if not isfile(sourceFile) and not createEmbeddedProject:
             with open(sourceFile, "w") as f:
                 f.write(sourceFileCode)
 
