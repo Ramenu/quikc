@@ -293,7 +293,7 @@ impl Build
             // append arguments if the flag is set
             #[cfg(feature = "quikc-nightly")]
             {
-                if let Some(true) = self.misc.toggle_iwyu {
+                if let Some(true) = self.compiler.append_args {
                     cmd.args(compiler_args.as_ref().unwrap().iter());
                 }
             }
