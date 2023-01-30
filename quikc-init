@@ -14,57 +14,136 @@ class Color:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-if len(argv) < 2:
-    print(f"{Color.BOLD}{Color.FAIL}error{Color.ENDC}{Color.BOLD}:{Color.ENDC} package name not specified")
-    exit(1)
-
-packageName = argv[1]
-
-BUILD_TOML_PATH = "./Build.toml"
-BUILD_INFO_DIR = "./buildinfo"
-BUILD_INFO_OBJ_DIR = f"{BUILD_INFO_DIR}/obj"
-BUILD_INFO_TABLE = f"{BUILD_INFO_DIR}/table"
-SOURCE_DIR = "./src"
-INCLUDE_DIR = "./include"
-MAIN_C_SOURCE_FILE = f"{SOURCE_DIR}/{packageName}.c"
-
-BUILD_TOML_STR = f"\
-[package]\n\
-    name = \"{packageName}\"\n\
-    debug_build = true\n\
-    \n\
-[compiler]\n\
-    compiler = \"gcc\""
-
-SOURCE_FILE_STR = f"\
-#include <stdio.h>\n\
-\n\
-int main(void)\n\
-{{\n\
-    printf(\"Hello world!\\n\");\n\
-    return 0;\n\
-}}"
 
 
-try:
-    if not isfile(BUILD_TOML_PATH):
-        with open(BUILD_TOML_PATH, "w") as f:
-            f.write(BUILD_TOML_STR)
 
-    if not isdir(SOURCE_DIR):
-        mkdir(SOURCE_DIR)
-    
-    if not isdir(INCLUDE_DIR):
-        mkdir(INCLUDE_DIR)
+if __name__ == "__main__":
 
-    if not isfile(MAIN_C_SOURCE_FILE):
-        with open(MAIN_C_SOURCE_FILE, "w") as f:
-            f.write(SOURCE_FILE_STR)
+    if len(argv) < 2:
+        print(f"{Color.BOLD}{Color.FAIL}error{Color.ENDC}{Color.BOLD}:{Color.ENDC} package name not specified")
+        exit(1)
 
-except Exception as e:
-    print(f"{Color.BOLD}{Color.FAIL}error{Color.ENDC}{Color.BOLD}:{Color.ENDC} {e}")
-    exit(1)
+    packageName = argv[1]
+    createEmbeddedProject = "--embedded" in argv
+    createCppProject = "--cpp" in argv
 
-print(f"{Color.OKGREEN}{Color.BOLD}Successfully created package '{packageName}'. You're all ready to go! :){Color.ENDC}")
+
+    BUILD_TOML_PATH = "./Build.toml"
+    BUILD_INFO_DIR = "./buildinfo"
+    BUILD_INFO_OBJ_DIR = f"{BUILD_INFO_DIR}/obj"
+    BUILD_INFO_TABLE = f"{BUILD_INFO_DIR}/table"
+    SOURCE_DIR = "./src"
+    INCLUDE_DIR = "./include"
+    sourceFile = f"{SOURCE_DIR}/{packageName}.c"
+
+    if not createCppProject:
+        if not createEmbeddedProject:
+            buildTomlContents = f"\
+            [package]\n\
+                name = \"{packageName}\"\n\
+                debug_build = true\n\
+                \n\
+            [compiler]\n\
+                compiler = \"gcc\""
+
+            sourceFileCode = f"\
+            #include <stdio.h>\n\
+            \n\
+            int main(void)\n\
+            {{\n\
+                printf(\"Hello world!\\n\");\n\
+                return 0;\n\
+            }}"
+        else:
+            buildTomlContents = f"\
+            [package]\n\
+                name = \"{packageName}\"\n\
+                debug_build = true\n\
+                \n\
+            [compiler]\n\
+                compiler = \"gcc\"\n\
+                args = [\n\
+                    \"-nolibc\",\n\
+                    \"-nostdlib\",\n\
+                    \"-nostartfiles\",\n\
+                    \"-nodefaultlibs\",\n\
+                ]\n\
+                append_args = true"
+                
+            sourceFileCode = f"\
+                int main(void)\n\
+                {{\n\
+                    return 0;\n\
+                }}"
+    else:
+        if not createEmbeddedProject:
+            buildTomlContents = f"\
+            [package]\n\
+                name = \"{packageName}\"\n\
+                debug_build = true\n\
+                \n\
+            [compiler]\n\
+                compiler = \"g++\""
+
+            sourceFileCode = f"\
+            #include <cstdio>\n\
+            \n\
+            int main()\n\
+            {{\n\
+                printf(\"Hello world!\\n\");\n\
+                return 0;\n\
+            }}"
+        else:
+            buildTomlContents = f"\
+            [package]\n\
+                name = \"{packageName}\"\n\
+                debug_build = true\n\
+                \n\
+            [compiler]\n\
+                compiler = \"g++\"\n\
+                args = [\n\
+                    \"-nolibc\",\n\
+                    \"-nostdlib\",\n\
+                    \"-nostdlib++\",\n\
+                    \"-nostartfiles\",\n\
+                    \"-nodefaultlibs\",\n\
+                ]\n\
+                append_args = true"
+                
+            sourceFileCode = f"\
+                int main()\n\
+                {{\n\
+                    return 0;\n\
+                }}"
+
+    # this is only used for creating tests to make sure the script runs correctly
+    if "--debug" in argv:
+        print("Source file contents:\n" + sourceFileCode)
+        print("'Build.toml' contents:\n" + buildTomlContents)
+        exit(0)
+
+
+    try:
+        if not isfile(BUILD_TOML_PATH):
+            with open(BUILD_TOML_PATH, "w") as f:
+                f.write(buildTomlContents)
+        else:
+            raise Exception("Build.toml already exists")
+
+        if not isdir(SOURCE_DIR):
+            mkdir(SOURCE_DIR)
+        
+        if not isdir(INCLUDE_DIR):
+            mkdir(INCLUDE_DIR)
+
+        if not isfile(sourceFile):
+            with open(sourceFile, "w") as f:
+                f.write(sourceFileCode)
+
+    except Exception as e:
+        print(f"{Color.BOLD}{Color.FAIL}error{Color.ENDC}{Color.BOLD}:{Color.ENDC} {e}")
+        exit(1)
+
+    print(f"{Color.OKGREEN}{Color.BOLD}Successfully created package '{packageName}'. You're all ready to go! :){Color.ENDC}")
 
 
