@@ -34,7 +34,7 @@ if __name__ == "__main__":
     BUILD_INFO_TABLE = f"{BUILD_INFO_DIR}/table"
     SOURCE_DIR = "./src"
     INCLUDE_DIR = "./include"
-    sourceFile = f"{SOURCE_DIR}/{packageName}.c"
+    sourceFile = f"{SOURCE_DIR}/{packageName}.cpp" if createCppProject else f"{SOURCE_DIR}/{packageName}.c"
 
     if not createCppProject:
         if not createEmbeddedProject:
