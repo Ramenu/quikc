@@ -8,10 +8,8 @@ use std::path::Path;
     use crate::example;
 #[cfg(feature = "quikc-nightly")] 
     use crate::logger;
-#[cfg(feature = "quikc-nightly")] 
-    use crate::flags;
-#[cfg(feature = "quikc-nightly")]
-    use crate::QuikcFlags;
+use crate::flags;
+use crate::QuikcFlags;
 
 
 use crate::{buildtable::{BUILD_TABLE_OBJECT_FILE_DIRECTORY, BUILD_TABLE_DEPS_DIRECTORY}, build::{Build, Compiler}};
@@ -98,8 +96,12 @@ pub fn select_default_compiler() -> &'static str
 pub fn compile_to_object_files(source_files : &Vec<String>,
                                build_info : &Build) -> bool
 {
+    let show_compiling_progress = flags()&QuikcFlags::HIDE_OUTPUT == QuikcFlags::NONE;
+
     source_files.into_par_iter().for_each(|file| {
-        cprintln!("<green><bold>Compiling </bold>'{}'...</green>", file);
+        if show_compiling_progress {
+            cprintln!("<green><bold>Compiling </bold>'{}'...</green>", file);
+        }
 
         let mut out_file_path = PathBuf::from(file);
         let out = to_output_file(&mut out_file_path, BUILD_TABLE_OBJECT_FILE_DIRECTORY, "o");

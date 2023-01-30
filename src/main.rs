@@ -26,12 +26,15 @@ const SOURCE_DIRECTORY : &str = "./src";
 bitflags! {
     pub struct QuikcFlags : u32 {
         const NONE = 0;
-        const HIDE_VERBOSE_OUTPUT = 1;
+        const HIDE_VERBOSE_OUTPUT = 1 << 0;
+        const DO_NOT_LINK = 1 << 1;
+        const HIDE_OUTPUT = 1 << 2;
     }
 }
 
 static INSTANCE : OnceCell<QuikcFlags> = OnceCell::new();
 
+#[inline]
 pub fn flags() -> QuikcFlags {
     *INSTANCE.get().unwrap()
 }
@@ -57,12 +60,16 @@ fn main()
         let compilation_successful = compiler::compile_to_object_files(&source_files, &build_config);
 
         if compilation_successful {
-            link(&build_config);
+            if flags()&QuikcFlags::DO_NOT_LINK == QuikcFlags::NONE {
+                link(&build_config);
+            } else {
+                success(&build_config);
+            }
         }
         return;
     }
     // Check if the binary exists, if not we need to relink
-    if !Path::new(&build_config.get_package_name()).is_file() {
+    if !Path::new(&build_config.get_package_name()).is_file() && flags()&QuikcFlags::DO_NOT_LINK == QuikcFlags::NONE {
         link(&build_config);
         return;
     }
@@ -70,7 +77,7 @@ fn main()
 
 }
 
-
+#[inline]
 fn parse_args() -> QuikcFlags
 {
     let args = std::env::args().collect::<Vec<String>>();
@@ -96,7 +103,18 @@ fn parse_args() -> QuikcFlags
                         std::process::exit(0);
                     },
                     // hide verbose output
-                    'h' => flags |= QuikcFlags::HIDE_VERBOSE_OUTPUT,
+                    'h' => {
+                        // if '-hh' is specified, then do not show any output at all, with the exception of errors
+                        // and compiler/linker output
+                        if flags&QuikcFlags::HIDE_VERBOSE_OUTPUT == QuikcFlags::HIDE_VERBOSE_OUTPUT {
+                            flags |= QuikcFlags::HIDE_OUTPUT;
+                        }
+                        else {
+                            flags |= QuikcFlags::HIDE_VERBOSE_OUTPUT
+                        }
+                    },
+                    // do not link after compiling
+                    'c' => flags |= QuikcFlags::DO_NOT_LINK,
                     _ => ()
                 };
             }
@@ -105,7 +123,7 @@ fn parse_args() -> QuikcFlags
     flags
 }
 
-
+#[inline]
 fn link(build_config : &Build)
 {
     let link_successful = linker::link_files(build_config);
@@ -114,14 +132,25 @@ fn link(build_config : &Build)
     }
 }
 
+#[inline]
 fn success(build_config : &Build)
 {
+    if flags()&QuikcFlags::HIDE_OUTPUT == QuikcFlags::HIDE_OUTPUT {
+        return;
+    }
+
     let build_type = match build_config.is_debug_build() {
         true => "debug",
         false => "release"
     };
 
+    if flags()&QuikcFlags::DO_NOT_LINK == QuikcFlags::DO_NOT_LINK {
+        cprintln!("<green><bold>Successfully compiled source files to object files [{}]</bold></green>", 
+                    build_type);
+        return;
+    }
+
     cprintln!("<green><bold>Successfully built target {} [{} build]</bold></green>", 
-            build_config.get_package_name(),
-            build_type);
+                    build_config.get_package_name(),
+                    build_type);
 }

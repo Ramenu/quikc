@@ -2,14 +2,12 @@ use std::{fs};
 
 use color_print::{cformat, cprintln};
 
+use crate::QuikcFlags;
+use crate::flags;
 #[cfg(feature = "quikc-nightly")] 
     use crate::example;
 #[cfg(feature = "quikc-nightly")] 
     use crate::logger;
-#[cfg(feature = "quikc-nightly")] 
-    use crate::flags;
-#[cfg(feature = "quikc-nightly")]
-    use crate::QuikcFlags;
 
 use crate::{buildtable::BUILD_TABLE_OBJECT_FILE_DIRECTORY, build::{Build, Linker}};
 
@@ -37,7 +35,10 @@ pub fn link_files(build_config : &Build) -> bool
         object_files.push(object_file_path_str);
     }
 
-    cprintln!("<green><bold>Linking executable</bold> '{}'...</green>", build_config.get_package_name());
+    if flags()&QuikcFlags::HIDE_OUTPUT == QuikcFlags::NONE {
+        cprintln!("<green><bold>Linking executable</bold> '{}'...</green>", build_config.get_package_name());
+    }
+
     let cmd = build_config.execute_linker_with_build_info()
                                     .args(object_files.iter())
                                     .arg("-o")
