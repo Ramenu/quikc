@@ -197,7 +197,7 @@ fn test_quikc_init(settings : &Settings) ->  Result<(), Box<dyn std::error::Erro
     // are for testing purposes only, which is why only 'source_file' is checked
     initialize_project(false, false, settings)?;
 
-    let source_file = format!("{SOURCE_DIRECTORY}/main.c");
+    let source_file = format!("{SOURCE_DIRECTORY}/{TEST_PACKAGE_NAME}.c");
 
     assert!(Path::new(BUILD_CONFIG_FILE).is_file());
     assert!(Path::new(SOURCE_DIRECTORY).is_dir());
