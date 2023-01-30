@@ -39,82 +39,82 @@ if __name__ == "__main__":
     if not createCppProject:
         if not createEmbeddedProject:
             buildTomlContents = f"\
-            [package]\n\
-                name = \"{packageName}\"\n\
-                debug_build = true\n\
-                \n\
-            [compiler]\n\
-                compiler = \"gcc\""
+[package]\n\
+    name = \"{packageName}\"\n\
+    debug_build = true\n\
+    \n\
+[compiler]\n\
+    compiler = \"gcc\""
 
             sourceFileCode = f"\
-            #include <stdio.h>\n\
-            \n\
-            int main(void)\n\
-            {{\n\
-                printf(\"Hello world!\\n\");\n\
-                return 0;\n\
-            }}"
+#include <stdio.h>\n\
+\n\
+int main(void)\n\
+{{\n\
+    printf(\"Hello world!\\n\");\n\
+    return 0;\n\
+}}"
         else:
             buildTomlContents = f"\
-            [package]\n\
-                name = \"{packageName}\"\n\
-                debug_build = true\n\
-                \n\
-            [compiler]\n\
-                compiler = \"gcc\"\n\
-                args = [\n\
-                    \"-nolibc\",\n\
-                    \"-nostdlib\",\n\
-                    \"-nostartfiles\",\n\
-                    \"-nodefaultlibs\",\n\
-                ]\n\
-                append_args = true"
+[package]\n\
+    name = \"{packageName}\"\n\
+    debug_build = true\n\
+    \n\
+[compiler]\n\
+    compiler = \"gcc\"\n\
+    args = [\n\
+        \"-nolibc\",\n\
+        \"-nostdlib\",\n\
+        \"-nostartfiles\",\n\
+        \"-nodefaultlibs\",\n\
+    ]\n\
+    append_args = true"
                 
             sourceFileCode = f"\
-                int main(void)\n\
-                {{\n\
-                    return 0;\n\
-                }}"
+int main(void)\n\
+{{\n\
+    return 0;\n\
+}}"
     else:
         if not createEmbeddedProject:
             buildTomlContents = f"\
-            [package]\n\
-                name = \"{packageName}\"\n\
-                debug_build = true\n\
-                \n\
-            [compiler]\n\
-                compiler = \"g++\""
+[package]\n\
+    name = \"{packageName}\"\n\
+    debug_build = true\n\
+    \n\
+[compiler]\n\
+    compiler = \"g++\""
 
             sourceFileCode = f"\
-            #include <cstdio>\n\
-            \n\
-            int main()\n\
-            {{\n\
-                printf(\"Hello world!\\n\");\n\
-                return 0;\n\
-            }}"
+#include <cstdio>\n\
+\n\
+int main()\n\
+{{\n\
+    printf(\"Hello world!\\n\");\n\
+    return 0;\n\
+}}"
         else:
             buildTomlContents = f"\
-            [package]\n\
-                name = \"{packageName}\"\n\
-                debug_build = true\n\
-                \n\
-            [compiler]\n\
-                compiler = \"g++\"\n\
-                args = [\n\
-                    \"-nolibc\",\n\
-                    \"-nostdlib\",\n\
-                    \"-nostdlib++\",\n\
-                    \"-nostartfiles\",\n\
-                    \"-nodefaultlibs\",\n\
-                ]\n\
-                append_args = true"
+[package]\n\
+    name = \"{packageName}\"\n\
+    debug_build = true\n\
+    \n\
+[compiler]\n\
+    compiler = \"g++\"\n\
+    args = [\n\
+        \"-nolibc\",\n\
+        \"-nostdlib\",\n\
+        \"-nostdlib++\",\n\
+        \"-nostartfiles\",\n\
+        \"-nodefaultlibs\",\n\
+    ]\n\
+    append_args = true"
                 
             sourceFileCode = f"\
-                int main()\n\
-                {{\n\
-                    return 0;\n\
-                }}"
+int main()\n\
+{{\n\
+    return 0;\n\
+}}"
 
     # this is only used for creating tests to make sure the script runs correctly
     if "--debug" in argv:
