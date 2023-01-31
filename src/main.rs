@@ -39,7 +39,7 @@ pub fn flags() -> QuikcFlags {
     *INSTANCE.get().unwrap()
 }
 
-#[test]
+#[cfg(test)]
 pub fn set_flags() {
     INSTANCE.set(QuikcFlags::NONE).unwrap();
 }
@@ -97,7 +97,7 @@ fn parse_args() -> QuikcFlags
                     // show version and terminate program
                     'v' => {
                         #[cfg(feature = "quikc-nightly")]
-                            println!("quikc-nightly v{}", version::NIGHTLY_VERSIONS[0]);
+                            println!("quikc-nightly v{}", version::NIGHTLY_VERSION);
                         #[cfg(not(feature = "quikc-nightly"))]
                             println!("quikc v{}", version::VERSIONS[0]);
                         std::process::exit(0);
