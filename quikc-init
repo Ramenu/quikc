@@ -14,12 +14,14 @@ class Color:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-
+def isFlag(s : str) -> bool:
+    return s.startswith("-")
 
 
 if __name__ == "__main__":
 
-    if len(argv) < 2:
+    size = len(argv)
+    if size < 2 or (size >= 2 and isFlag(argv[1])):
         print(f"{Color.BOLD}{Color.FAIL}error{Color.ENDC}{Color.BOLD}:{Color.ENDC} package name not specified")
         exit(1)
 
