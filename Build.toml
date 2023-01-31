@@ -22,7 +22,7 @@
 [misc]
     # Level 1 = No optimizations
     # Level 2 = Most optimizations enabled
-    # Level 3 = Extreme optimizations for performance, will not produce a cross-platform binary and could
+    # Level 3 = Extreme optimizations for performance, will not produce a cross-platform binary and 
     # some parts of the program may not work as intended
     
     # By default, quikc will use level 1 for debug builds and level 2 for
