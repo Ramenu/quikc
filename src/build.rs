@@ -1,6 +1,7 @@
 use std::{fs::{self}, process::Command, path::Path};
 use color_print::{cprintln, cformat};
-use serde_derive::Deserialize;
+use serde::{Serialize, ser::SerializeStruct};
+use serde_derive::{Deserialize, Serialize};
 #[cfg(feature = "quikc-nightly")] 
     use crate::example;
 #[cfg(feature = "quikc-nightly")] 
@@ -11,59 +12,65 @@ use crate::{defaultbuild::{GCC_COMPILER_NONEXCLUSIVE_WARNINGS, GCC_COMPILER_C_EX
 pub const BUILD_CONFIG_FILE : &str = "./Build.toml";
 pub const BUILD_CONFIG_CACHE_FILE : &str = "./buildinfo/.buildcache";
 
-
+#[cfg_attr(test, derive(Serialize))]
 #[derive(Deserialize, PartialEq, Default)]
-struct Package
+pub struct Package
 {
-    name : String,
-    debug_build : bool
+    pub name : String,
+    pub debug_build : bool
 }
 
+#[cfg_attr(test, derive(Serialize))]
 #[derive(Deserialize, PartialEq, Default)]
 pub struct Compiler
 {
-    compiler : String,
-    args : Option<Vec<String>>,
-    cstd : Option<String>,
-    cppstd : Option<String>,
+    pub compiler : String,
+    pub args : Option<Vec<String>>,
+    pub cstd : Option<String>,
+    pub cppstd : Option<String>,
     #[cfg(feature = "quikc-nightly")]
-    append_args : Option<bool>
+    pub append_args : Option<bool> 
 }
 
+#[cfg_attr(test, derive(Serialize))]
 #[derive(Deserialize, PartialEq, Default)]
 pub struct Linker
 {
-    args : Option<Vec<String>>,
-    libraries : Option<Vec<String>>,
+    pub args : Option<Vec<String>>,
+    pub libraries : Option<Vec<String>>,
     #[cfg(feature = "quikc-nightly")]
-    append_args : Option<bool>
+    pub append_args : Option<bool> 
 }
 
+#[cfg_attr(test, derive(Serialize))]
 #[derive(Deserialize, PartialEq, Default, Clone, Copy)]
-struct Misc
+pub struct Misc
 {
-    optimization_level : Option<u32>,
-    static_analysis_enabled : Option<bool>,
+    pub optimization_level : Option<u32>,
+    pub static_analysis_enabled : Option<bool>,
     #[cfg(feature = "quikc-nightly")]
-    toggle_iwyu : Option<bool> // Not recommended to be toggled as it contains a lot of bugs
+    pub toggle_iwyu : Option<bool> 
 }
 
+#[cfg_attr(test, derive(Serialize))]
 #[derive(Deserialize, PartialEq, Default)]
 pub struct BuildOption
 {
-    package : Package,
-    compiler : Option<Compiler>,
-    linker : Option<Linker>,
-    misc : Option<Misc>
+    pub package : Package,
+    pub compiler : Option<Compiler>,
+    pub linker : Option<Linker>,
+    pub misc : Option<Misc>
 }
 
+
+#[cfg_attr(test, derive(Serialize))]
 #[derive(Deserialize, PartialEq, Default)]
 pub struct Build
 {
-    package : Package,
-    compiler : Compiler,
-    linker : Linker,
-    misc : Misc
+    pub package : Package,
+    pub compiler : Compiler,
+    pub linker : Linker,
+    pub misc : Misc
 }
 
 #[cfg(feature = "quikc-nightly")]
@@ -186,7 +193,7 @@ impl Build
                             This may cause your code to not compile. For more information see: https://github.com/include-what-you-use/include-what-you-use");
                 }
                 if let Some(true) = config.compiler.append_args {
-                    let args_specified = config.compiler.args().is_some();
+                    let args_specified = config.compiler.args.is_some();
 
                     // give a warning here as this can override the default configuration (which the user probably
                     // did not mean to do)
@@ -348,66 +355,4 @@ impl Build
         }
     }
 
-    #[inline]
-    pub fn get_package_name(&self) -> &String {
-        &self.package.name
-    }
-
-    #[inline]
-    pub fn is_debug_build(&self) -> bool {
-        self.package.debug_build
-    }
-
-    #[inline]
-    pub fn get_compiler_name(&self) -> &String {
-        &self.compiler.compiler
-    }
-
-    #[cfg(feature = "quikc-nightly")]
-    #[inline]
-    pub fn iwyu_enabled(&self) -> bool {
-        self.misc.toggle_iwyu.unwrap_or(false)
-    }
-
-}
-
-
-impl Compiler
-{
-    pub fn args(&self) -> Option<&Vec<String>> {
-        self.args.as_ref()
-    }
-
-    pub fn cstd(&self) -> &String {
-        self.cstd.as_ref().unwrap()
-    }
-
-    pub fn cppstd(&self) -> &String {
-        self.cppstd.as_ref().unwrap()
-    }
-
-    pub fn compiler(&self) -> &String {
-        &self.compiler
-    }
-
-    #[cfg(feature = "quikc-nightly")]
-    pub fn append_args(&self) -> &Option<bool> {
-        &self.append_args
-    }
-}
-
-impl Linker
-{
-    pub fn args(&self) -> Option<&Vec<String>> {
-        self.args.as_ref()
-    }
-
-    pub fn libraries(&self) -> Option<&Vec<String>> {
-        self.libraries.as_ref()
-    }
-
-    #[cfg(feature = "quikc-nightly")]
-    pub fn append_args(&self) -> &Option<bool> {
-        &self.append_args
-    }
 }
