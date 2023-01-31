@@ -11,6 +11,8 @@ use crate::{defaultbuild::{GCC_COMPILER_NONEXCLUSIVE_WARNINGS, GCC_COMPILER_C_EX
 
 pub const BUILD_CONFIG_FILE : &str = "./Build.toml";
 pub const BUILD_CONFIG_CACHE_FILE : &str = "./buildinfo/.buildcache";
+pub const DEFAULT_C_STANDARD : &str = "-std=c17";
+pub const DEFAULT_CPP_STANDARD : &str = "-std=c++20";
 
 #[cfg_attr(test, derive(Serialize))]
 #[derive(Deserialize, PartialEq, Default)]
@@ -134,9 +136,9 @@ impl Build
             let config_ref = toml_config.compiler.as_ref().unwrap();
             config.compiler.args = toml_config.compiler.as_ref().unwrap().args.to_owned();
 
-            config.compiler.cppstd = Some(if config_ref.cppstd.is_none() {"-std=c++20".to_string()} 
+            config.compiler.cppstd = Some(if config_ref.cppstd.is_none() {DEFAULT_CPP_STANDARD.to_string()} 
                                           else {format!("-std={}", config_ref.cppstd.as_ref().unwrap())});
-            config.compiler.cstd = Some(if config_ref.cstd.is_none() {"-std=c17".to_string()} 
+            config.compiler.cstd = Some(if config_ref.cstd.is_none() {DEFAULT_C_STANDARD.to_string()} 
                                         else {format!("-std={}", config_ref.cstd.as_ref().unwrap())});
             #[cfg(feature = "quikc-nightly")] {
                 config.compiler.append_args = toml_config.compiler.as_ref().unwrap().append_args;
@@ -292,9 +294,9 @@ impl Build
                     _ => ()
                 }   
             }
-            else {
-                cprintln!("<bold><yellow>note:</yellow></bold> cannot use default configuration because
-                           compiler vendor is unknown, please supply your own flags.");
+            else if flags()&QuikcFlags::HIDE_VERBOSE_OUTPUT == QuikcFlags::NONE {
+                cprintln!("<bold><yellow>note</yellow>:</bold> cannot use default configuration because
+                        compiler vendor is unknown, please supply your own flags.");
             }
 
             // append arguments if the flag is set
