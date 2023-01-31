@@ -151,6 +151,6 @@ fn success(build_config : &Build)
     }
 
     cprintln!("<green><bold>Successfully built target {} [{} build]</bold></green>", 
-                    build_config.package.debug_build,
+                    build_config.package.name,
                     build_type);
 }
