@@ -1,8 +1,11 @@
-use std::{process::Command, fs::{self}, env, path::Path, time::{SystemTime}, collections::HashMap, io::Write};
-use crate::defaultbuild::GCC_AND_CLANG_LINKER_OPTIONS;
+use std::{process::Command, fs::{self}, env, path::Path, time::{SystemTime}, collections::HashMap, io::Write, error::Error};
+use crate::{defaultbuild::{GCC_AND_CLANG_LINKER_OPTIONS, GCC_COMPILER_C_EXCLUSIVE_WARNINGS, GCC_COMPILER_NONEXCLUSIVE_WARNINGS, GCC_AND_CLANG_DIALECT_OPTIONS, CLANG_COMPILER_NONEXCLUSIVE_WARNINGS, GCC_COMPILER_CPP_EXCLUSIVE_WARNINGS, GCC_COMPILER_CPP_DIALECT_OPTIONS, CLANG_COMPILER_CPP_WARNINGS, GCC_AND_CLANG_CPP_DIALECT_OPTIONS, GCC_AND_CLANG_OPTIMIZATION_OPTIONS, GCC_STATIC_ANALYSIS_OPTIONS, GCC_AND_CLANG_ENHANCED_OPTIMIZATION_OPTIONS}, build::{DEFAULT_C_STANDARD, DEFAULT_CPP_STANDARD}, version::VERSIONS};
 
 use color_print::cprintln;
+use const_format::concatcp;
 use filetime::{set_file_mtime};
+#[cfg(feature = "quikc-nightly")]
+use crate::version::NIGHTLY_VERSION;
 
 use crate::{build::{BUILD_CONFIG_FILE, Build}, SOURCE_DIRECTORY, compiler::{INCLUDE_PATH, compile_to_object_files, is_c_source_file, is_cpp_source_file, is_header_file}, buildtable::{BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY, get_duration_since_modified}, walker, linker::link_files, set_flags};
 
@@ -171,6 +174,9 @@ pub fn test_all() -> Result<(), Box<dyn std::error::Error>>
         test_config(&settings)?;
         reset()?;
 
+        test_cmdline_flags(&settings)?;
+        reset()?;
+
         test_first_time_compilation(&settings)?;
         reset()?;
 
@@ -190,6 +196,9 @@ pub fn test_all() -> Result<(), Box<dyn std::error::Error>>
         reset()?;
 
         test_compilation_after_dependency_deletion(&settings)?;
+        reset()?;
+
+        test_execute_compiler_with_build_info(&settings)?;
         reset()?;
 
         test_execute_linker_with_build_info(&settings)?;
@@ -443,6 +452,8 @@ fn test_compilation_after_dependency_deletion(settings : &Settings) -> Result<()
 #[cfg(test)]
 fn test_config(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
 {
+    use crate::build::DEFAULT_CPP_STANDARD;
+
     test_first_time_compilation(settings)?;
 
     // Test if default configurations are applied correctly
@@ -453,13 +464,13 @@ fn test_config(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
         false => "gcc"
     });
     assert_eq!(build.package.name, TEST_PACKAGE_NAME);
-    assert_eq!(build.compiler.cstd.unwrap(), "-std=c17");
+    assert_eq!(build.compiler.cstd.unwrap(), DEFAULT_C_STANDARD);
     assert!(build.misc.optimization_level.is_none());
     assert!(build.misc.static_analysis_enabled.is_none());
     assert!(build.compiler.args.is_none());
     assert!(build.linker.args.is_none());
     assert!(build.linker.libraries.is_none());
-    assert_eq!(build.compiler.cppstd.unwrap(), "-std=c++20");
+    assert_eq!(build.compiler.cppstd.unwrap(), DEFAULT_CPP_STANDARD);
     #[cfg(feature = "quikc-nightly")]
     {
         assert!(build.misc.toggle_iwyu.is_none());
@@ -510,6 +521,7 @@ fn test_config(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
+/// Tests if 'Build::linker_with_build_info()' works correctly
 fn test_execute_linker_with_build_info(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
 {
     test_first_time_compilation(settings)?;
@@ -569,12 +581,302 @@ fn test_execute_linker_with_build_info(settings : &Settings) -> Result<(), Box<d
     Ok(())
 }
 
+fn test_cmdline_flags(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
+{
+    test_first_time_compilation(settings)?;
+    let build = Build::new();
+    
+    let run = |args : Vec<&str>| {
+        #[cfg(not(feature = "quikc-nightly"))]
+        {
+            let cmd = Command::new("cargo")
+                            .args(["run", ".."])
+                            .args(args)
+                            .output()
+                            .unwrap()
+                            .stdout;
+            String::from_utf8_lossy(&cmd).to_string()
+        }
+        #[cfg(feature = "quikc-nightly")]
+        {
+            let cmd = Command::new("cargo")
+                            .args(["run", "--features", "quikc-nightly", ".."])
+                            .args(args)
+                            .output()
+                            .unwrap()
+                            .stdout;
+            String::from_utf8_lossy(&cmd).to_string()
+        }
+    };
+
+    // Test if the version flag works
+    #[cfg(not(feature = "quikc-nightly"))]
+        assert_eq!(run(["-v"].to_vec()), concatcp!("quikc v", VERSIONS[0], "\n"));
+    #[cfg(feature = "quikc-nightly")]
+        assert_eq!(run(["-v"].to_vec()), concatcp!("quikc-nightly v", NIGHTLY_VERSION, "\n"));
+
+    // Test if -h works (disables verbose output)
+    let mut build = Build::new();
+
+    // a compiler unknown to quikc should give a warning/note that the compiler is unknown
+    // so default configuration settings cannot be used
+    build.compiler.compiler = "not_a_real_compiler".to_string();
+
+    write_to_config(&build)?;
+    assert!(!run(["-h"].to_vec()).contains("cannot use default configuration because compiler vendor is unknown, please supply your own flags."));
+
+    // '-hh' disables all output, except for compiler messages
+    assert_eq!(run(["-hh"].to_vec()), "");
+
+    reset()?;
+    test_first_time_compilation(settings)?;
+
+    // '-c' does not link the object files
+    assert!(run(["-c"].to_vec()).contains("Successfully compiled source files to object files"));
+
+    Ok(())
+}
+
+/// Tests if 'Build::compiler_with_build_info()' works correctly
 fn test_execute_compiler_with_build_info(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
 {
+    test_first_time_compilation(settings)?;
     let build = Build::new();
-    // file name does not matter, only the extension as that can change the result
-    // of the command
-    let args = build.execute_compiler_with_build_info("test.c").get_args();
+    // Check if default configuration for C on debug builds is correct
+    let command = build.execute_compiler_with_build_info("test.c");
+    let args = command.get_args().into_iter().map(|s| s.to_str().unwrap()).collect::<Vec<&str>>();
+
+    if settings.use_clang {
+        let expected = vec!["-g", DEFAULT_C_STANDARD].into_iter()
+                                                    .chain(CLANG_COMPILER_NONEXCLUSIVE_WARNINGS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_AND_CLANG_DIALECT_OPTIONS).collect::<Vec<&str>>();
+
+        for arg in &expected {
+            assert!(args.contains(arg), "At line {}: Expected argument '{}' not found in args: {:?}", line!(), arg, args);
+            assert!(args.contains(arg));
+        }
+        
+    }
+    else {
+        let expected = vec!["-g", DEFAULT_C_STANDARD].into_iter()
+                                                    .chain(GCC_COMPILER_NONEXCLUSIVE_WARNINGS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_AND_CLANG_DIALECT_OPTIONS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_COMPILER_C_EXCLUSIVE_WARNINGS).collect::<Vec<&str>>();
+
+        for arg in &expected {
+            assert!(args.contains(arg), "At line {}: Expected argument '{}' not found in args: {:?}", line!(), arg, args);
+            assert!(args.contains(arg));
+        }
+    }
+
+    // Check if the default configuration for C++ on debug builds is correct
+    let command = build.execute_compiler_with_build_info("test.cpp");
+    let args = command.get_args().into_iter().map(|s| s.to_str().unwrap()).collect::<Vec<&str>>();
+    if settings.use_clang {
+        let expected = vec!["-g", DEFAULT_CPP_STANDARD].into_iter()
+                                                    .chain(CLANG_COMPILER_NONEXCLUSIVE_WARNINGS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_AND_CLANG_DIALECT_OPTIONS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(CLANG_COMPILER_CPP_WARNINGS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_AND_CLANG_CPP_DIALECT_OPTIONS).collect::<Vec<&str>>();
+
+        for arg in &expected {
+            assert!(args.contains(arg), "At line {}: Expected argument '{}' not found in args: {:?}", line!(), arg, args);
+        }
+    }
+    else {
+        let expected = vec!["-g", DEFAULT_CPP_STANDARD].into_iter()
+                                                    .chain(GCC_COMPILER_NONEXCLUSIVE_WARNINGS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_AND_CLANG_DIALECT_OPTIONS).into_iter()
+                                                    .chain(GCC_COMPILER_CPP_EXCLUSIVE_WARNINGS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_AND_CLANG_CPP_DIALECT_OPTIONS).collect::<Vec<&str>>();
+
+        for arg in &expected {
+            assert!(args.contains(arg), "At line {}: Expected argument '{}' not found in args: {:?}", line!(), arg, args);
+        }
+    }
+
+    let mut build = Build::new();
+    build.package.debug_build = false;
+
+    // Check if the default configuration for C on release builds is correct
+    let command = build.execute_compiler_with_build_info("test.c");
+    let args = command.get_args().into_iter().map(|s| s.to_str().unwrap()).collect::<Vec<&str>>();
+
+    if settings.use_clang {
+        let expected = vec![DEFAULT_C_STANDARD].into_iter()
+                                                    .chain(CLANG_COMPILER_NONEXCLUSIVE_WARNINGS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_AND_CLANG_OPTIMIZATION_OPTIONS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_AND_CLANG_DIALECT_OPTIONS).collect::<Vec<&str>>();
+
+        for arg in &expected {
+            assert!(args.contains(arg), "At line {}: Expected argument '{}' not found in args: {:?}", line!(), arg, args);
+        }
+        
+    }
+    else {
+        let expected = vec![DEFAULT_C_STANDARD].into_iter()
+                                                    .chain(GCC_COMPILER_NONEXCLUSIVE_WARNINGS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_AND_CLANG_DIALECT_OPTIONS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_AND_CLANG_OPTIMIZATION_OPTIONS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_COMPILER_C_EXCLUSIVE_WARNINGS).collect::<Vec<&str>>();
+
+        for arg in &expected {
+            assert!(args.contains(arg), "At line {}: Expected argument '{}' not found in args: {:?}", line!(), arg, args);
+        }
+    }
+
+
+    // Check if the default configuration for C++ on release builds is correct
+    let command = build.execute_compiler_with_build_info("test.cpp");
+    let args = command.get_args().into_iter().map(|s| s.to_str().unwrap()).collect::<Vec<&str>>();
+    if settings.use_clang {
+        let expected = vec![DEFAULT_CPP_STANDARD].into_iter()
+                                                    .chain(CLANG_COMPILER_NONEXCLUSIVE_WARNINGS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_AND_CLANG_DIALECT_OPTIONS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(CLANG_COMPILER_CPP_WARNINGS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_AND_CLANG_OPTIMIZATION_OPTIONS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_AND_CLANG_CPP_DIALECT_OPTIONS).collect::<Vec<&str>>();
+
+        for arg in &expected {
+            assert!(args.contains(arg), "At line {}: Expected argument '{}' not found in args: {:?}", line!(), arg, args);
+        }
+    }
+    else {
+        let expected = vec![DEFAULT_CPP_STANDARD].into_iter()
+                                                    .chain(GCC_COMPILER_NONEXCLUSIVE_WARNINGS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_AND_CLANG_DIALECT_OPTIONS).into_iter()
+                                                    .chain(GCC_COMPILER_CPP_EXCLUSIVE_WARNINGS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_AND_CLANG_OPTIMIZATION_OPTIONS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_AND_CLANG_CPP_DIALECT_OPTIONS).collect::<Vec<&str>>();
+
+        for arg in &expected {
+            assert!(args.contains(arg), "At line {}: Expected argument '{}' not found in args: {:?}", line!(), arg, args);
+        }
+    }
+
+    let mut build = Build::new();
+    let chosen_cpp_standard = "-std=c++14";
+    let chosen_c_standard = "-std=c99";
+
+    build.package.debug_build = false;
+    build.compiler.cppstd = Some(chosen_cpp_standard.to_string());
+    build.compiler.cstd = Some(chosen_c_standard.to_string());
+
+    build.misc.optimization_level = Some(3);
+    build.misc.static_analysis_enabled = Some(true);
+
+    // Check if custom configuration rules override the default ones (they should)
+    let command = build.execute_compiler_with_build_info("test.c");
+    let args = command.get_args().into_iter().map(|s| s.to_str().unwrap()).collect::<Vec<&str>>();
+
+    // Check if the custom configuration rules work for C
+    if settings.use_clang {
+        let expected = vec![chosen_c_standard].into_iter()
+                                                    .chain(CLANG_COMPILER_NONEXCLUSIVE_WARNINGS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_AND_CLANG_ENHANCED_OPTIMIZATION_OPTIONS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_AND_CLANG_DIALECT_OPTIONS).collect::<Vec<&str>>();
+
+        for arg in &expected {
+            assert!(args.contains(arg), "At line {}: Expected argument '{}' not found in args: {:?}", line!(), arg, args);
+        }
+        
+    }
+    else {
+        let expected = vec![chosen_c_standard].into_iter()
+                                                    .chain(GCC_COMPILER_NONEXCLUSIVE_WARNINGS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_AND_CLANG_DIALECT_OPTIONS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_AND_CLANG_ENHANCED_OPTIMIZATION_OPTIONS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_COMPILER_C_EXCLUSIVE_WARNINGS).collect::<Vec<&str>>();
+
+        for arg in &expected {
+            assert!(args.contains(arg), "At line {}: Expected argument '{}' not found in args: {:?}", line!(), arg, args);
+        }
+
+    }
+
+    let command = build.execute_compiler_with_build_info("test.cpp");
+    let args = command.get_args().into_iter().map(|s| s.to_str().unwrap()).collect::<Vec<&str>>();
+
+    // Check if the custom configuration rules work for C++
+    if settings.use_clang {
+        let expected = vec![chosen_cpp_standard].into_iter()
+                                                    .chain(CLANG_COMPILER_NONEXCLUSIVE_WARNINGS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_AND_CLANG_DIALECT_OPTIONS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(CLANG_COMPILER_CPP_WARNINGS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_AND_CLANG_ENHANCED_OPTIMIZATION_OPTIONS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_AND_CLANG_CPP_DIALECT_OPTIONS).collect::<Vec<&str>>();
+
+        for arg in &expected {
+            assert!(args.contains(arg), "At line {}: Expected argument '{}' not found in args: {:?}", line!(), arg, args);
+        }
+    }
+    else {
+        let expected = vec![chosen_cpp_standard].into_iter()
+                                                    .chain(GCC_COMPILER_NONEXCLUSIVE_WARNINGS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_AND_CLANG_DIALECT_OPTIONS).into_iter()
+                                                    .chain(GCC_COMPILER_CPP_EXCLUSIVE_WARNINGS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_AND_CLANG_ENHANCED_OPTIMIZATION_OPTIONS).collect::<Vec<&str>>().into_iter()
+                                                    .chain(GCC_AND_CLANG_CPP_DIALECT_OPTIONS).collect::<Vec<&str>>();
+
+        for arg in &expected {
+            assert!(args.contains(arg), "At line {}: Expected argument '{}' not found in args: {:?}", line!(), arg, args);
+        }
+    }
+
+    // Check if default arguments are removed when the user defines their own arguments
+    // (note: this won't remove all of them, e.g., standard, debug info, etc).
+
+    let mut build = Build::new();
+    build.compiler.args = Some(vec!["-Wall".to_string(), "-Wextra".to_string()]);
+
+    let command = build.execute_compiler_with_build_info("test.c");
+    let args = command.get_args().into_iter().map(|s| s.to_str().unwrap()).collect::<Vec<&str>>();
+
+    assert!(args.contains(&DEFAULT_C_STANDARD), "At line {}: Expected argument '{}' not found in args: {:?}", line!(), DEFAULT_C_STANDARD, args);
+    assert!(args.contains(&"-g"), "At line {}: Expected argument '-g' not found in args: {:?}", line!(), args);
+    for arg in &build.compiler.args.unwrap() {
+        assert!(args.contains(&arg.as_str()), "At line {}: Argument '{}' should be present in args: {:?}", line!(), arg, args);
+    }
+
+    #[cfg(feature = "quikc-nightly")]
+    {
+        let mut build = Build::new();
+
+        // not valid but since we arent invoking the compiler it does not matter. we just want to see if the arguments will be
+        // appended when the actual command will be run
+        let v = vec!["-Notavalidargument", "-Appendworks!"];
+        build.compiler.args = Some(vec!["-Notavalidargument".to_string(), "-Appendworks!".to_string()]);
+
+        build.compiler.append_args = Some(true);
+
+        let command = build.execute_compiler_with_build_info("test.c");
+        let args = command.get_args().into_iter().map(|s| s.to_str().unwrap()).collect::<Vec<&str>>();
+
+        if settings.use_clang {
+            let expected = v.into_iter()
+                                       .chain(CLANG_COMPILER_NONEXCLUSIVE_WARNINGS).collect::<Vec<&str>>().into_iter()
+                                       .chain(GCC_AND_CLANG_DIALECT_OPTIONS).collect::<Vec<&str>>().into_iter();
+
+            assert!(args.contains(&DEFAULT_C_STANDARD), "At line {}: Expected argument '{}' not found in args: {:?}", line!(), DEFAULT_C_STANDARD, args);
+            assert!(args.contains(&"-g"), "At line {}: Expected argument '-g' not found in args: {:?}", line!(), args);
+
+            for arg in expected {
+                assert!(args.contains(&arg), "At line {}: Argument '{}' should be present in args: {:?}", line!(), arg, args);
+            }
+        }
+        else {
+            let expected = v.into_iter()
+                                    .chain(GCC_COMPILER_NONEXCLUSIVE_WARNINGS).collect::<Vec<&str>>().into_iter()
+                                    .chain(GCC_AND_CLANG_DIALECT_OPTIONS).collect::<Vec<&str>>().into_iter()
+                                    .chain(GCC_COMPILER_C_EXCLUSIVE_WARNINGS).collect::<Vec<&str>>();
+
+            assert!(args.contains(&DEFAULT_C_STANDARD), "At line {}: Expected argument '{}' not found in args: {:?}", line!(), DEFAULT_C_STANDARD, args);
+            assert!(args.contains(&"-g"), "At line {}: Expected argument '-g' not found in args: {:?}", line!(), args);
+            for arg in expected {
+                assert!(args.contains(&arg), "At line {}: Argument '{}' should be present in args: {:?}", line!(), arg, args);
+            }
+        }
+    }
 
     Ok(())
 }
