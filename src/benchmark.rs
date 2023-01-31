@@ -207,7 +207,7 @@ fn quikc_benchmark() -> Result<(), Box<dyn std::error::Error>>
     {
         let tools = Tools::new();
         benchmark_fn("time to check for a file's dependencies", &mut || {
-            tools.build_table.get_file_dependencies(tools.build_config.get_compiler_name());
+            tools.build_table.get_file_dependencies(&tools.build_config.compiler.compiler);
         });
     }
 

@@ -69,7 +69,7 @@ fn main()
         return;
     }
     // Check if the binary exists, if not we need to relink
-    if !Path::new(&build_config.get_package_name()).is_file() && flags()&QuikcFlags::DO_NOT_LINK == QuikcFlags::NONE {
+    if !Path::new(&build_config.package.name).is_file() && flags()&QuikcFlags::DO_NOT_LINK == QuikcFlags::NONE {
         link(&build_config);
         return;
     }
@@ -139,7 +139,7 @@ fn success(build_config : &Build)
         return;
     }
 
-    let build_type = match build_config.is_debug_build() {
+    let build_type = match build_config.package.debug_build {
         true => "debug",
         false => "release"
     };
@@ -151,6 +151,6 @@ fn success(build_config : &Build)
     }
 
     cprintln!("<green><bold>Successfully built target {} [{} build]</bold></green>", 
-                    build_config.get_package_name(),
+                    build_config.package.debug_build,
                     build_type);
 }

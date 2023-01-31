@@ -16,11 +16,11 @@ pub fn use_default_linker_configuration(linker : &Linker) -> bool
 {
     #[cfg(feature = "quikc-nightly")]
     {
-        if let Some(true) = linker.append_args() {
-            return linker.args().is_some();
+        if let Some(true) = linker.append_args {
+            return linker.args.is_some()
         }
     }
-    linker.args().is_none()
+    linker.args.is_none()
 }
 
 pub fn link_files(build_config : &Build) -> bool
@@ -36,20 +36,20 @@ pub fn link_files(build_config : &Build) -> bool
     }
 
     if flags()&QuikcFlags::HIDE_OUTPUT == QuikcFlags::NONE {
-        cprintln!("<green><bold>Linking executable</bold> '{}'...</green>", build_config.get_package_name());
+        cprintln!("<green><bold>Linking executable</bold> '{}'...</green>", build_config.package.name);
     }
 
     let cmd = build_config.execute_linker_with_build_info()
                                     .args(object_files.iter())
                                     .arg("-o")
-                                    .arg(build_config.get_package_name())
+                                    .arg(&build_config.package.name)
                                     .output()
                                     .expect("Failed to execute linker");
     
     if !cmd.status.success() {
         let err_output = String::from_utf8_lossy(&cmd.stderr);
         eprintln!("{}\n{}", 
-                    cformat!("<bold><red>error</red>:</bold> Failed to link executable '{}'", build_config.get_package_name()), 
+                    cformat!("<bold><red>error</red>:</bold> Failed to link executable '{}'", build_config.package.name), 
                     err_output);
         return false;
     }

@@ -1,4 +1,4 @@
-use std::{process::Command, fs::{self}, env, path::Path, time::{SystemTime}, collections::HashMap};
+use std::{process::Command, fs::{self}, env, path::Path, time::{SystemTime}, collections::HashMap, io::Write};
 
 use color_print::cprintln;
 use filetime::{set_file_mtime};
@@ -65,6 +65,13 @@ pub fn modify_file_time(file : &str) -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
+fn write_to_config(build_config : &Build) -> Result<(), Box<dyn std::error::Error>>
+{
+    let mut file = fs::File::create(BUILD_CONFIG_FILE)?;
+    let toml = toml::to_string(build_config)?;
+    file.write_all(toml.as_bytes())?;
+    Ok(())
+}
 
 
 #[inline]
@@ -160,14 +167,17 @@ pub fn test_all() -> Result<(), Box<dyn std::error::Error>>
         test_quikc_init(&settings)?;
         reset()?;
 
+        test_config(&settings)?;
+        reset()?;
+
         test_first_time_compilation(&settings)?;
         reset()?;
 
         test_recompilation(&settings)?;
         reset()?;
 
-        //test_invalid_file_recompiles(&settings)?;
-        //reset()?;
+        test_invalid_file_recompiles(&settings)?;
+        reset()?;
 
         test_recompile_after_config_change(&settings)?;
         reset()?;
@@ -420,6 +430,79 @@ fn test_compilation_after_dependency_deletion(settings : &Settings) -> Result<()
 
     let link_success = link_files(&tools.build_config);
     assert!(link_success);
+
+    Ok(())
+}
+
+/// Tests if the Build::new() will correctly initialize the build configuration
+/// from the 'Build.toml' file
+#[cfg(test)]
+fn test_config(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
+{
+    test_first_time_compilation(settings)?;
+
+    // Test if default configurations are applied correctly
+    let build = Build::new();
+    assert!(build.package.debug_build);
+    assert_eq!(build.compiler.compiler, match settings.use_clang {
+        true => "clang",
+        false => "gcc"
+    });
+    assert_eq!(build.package.name, TEST_PACKAGE_NAME);
+    assert_eq!(build.compiler.cstd.unwrap(), "-std=c17");
+    assert!(build.misc.optimization_level.is_none());
+    assert!(build.misc.static_analysis_enabled.is_none());
+    assert!(build.compiler.args.is_none());
+    assert!(build.linker.args.is_none());
+    assert!(build.linker.libraries.is_none());
+    assert_eq!(build.compiler.cppstd.unwrap(), "-std=c++20");
+    #[cfg(feature = "quikc-nightly")]
+    {
+        assert!(build.misc.toggle_iwyu.is_none());
+        assert!(build.compiler.append_args.is_none());
+        assert!(build.linker.append_args.is_none());
+    }
+
+    let mut build = Build::new();
+    build.package.name = "test".to_string();
+    build.package.debug_build = false;
+    build.compiler.compiler = "clang++".to_string();
+    build.compiler.cstd = Some("c11".to_string());
+    build.compiler.cppstd = Some("c++98".to_string());
+    build.misc.optimization_level = Some(3);
+    build.misc.static_analysis_enabled = Some(true);
+    build.compiler.args = Some(vec!["-Wall".to_string(), "-Wextra".to_string()]);
+    build.linker.args = Some(vec!["-s".to_string(), "-flto".to_string()]);
+    build.linker.libraries = Some(vec![]);
+
+    #[cfg(feature = "quikc-nightly")]
+    {
+        build.misc.toggle_iwyu = Some(true);
+        build.compiler.append_args = Some(false);
+        build.linker.append_args = Some(false);
+    }
+
+    write_to_config(&build)?;
+
+    let build = Build::new();
+    assert_eq!(build.package.name, "test");
+    assert!(!build.package.debug_build);
+    assert_eq!(build.compiler.compiler, "clang++");
+    assert_eq!(build.compiler.cstd.unwrap(), "-std=c11");
+    assert_eq!(build.compiler.cppstd.unwrap(), "-std=c++98");
+    assert_eq!(build.misc.optimization_level.unwrap(), 3);
+    assert!(build.misc.static_analysis_enabled.unwrap());
+    assert_eq!(build.compiler.args.unwrap().len(), 2);
+    assert_eq!(build.linker.args.unwrap().len(), 2);
+    assert_eq!(build.linker.libraries.unwrap().len(), 0);
+
+
+    #[cfg(feature = "quikc-nightly")]
+    {
+        assert!(build.misc.toggle_iwyu.unwrap());
+        assert!(!build.compiler.append_args.unwrap());
+        assert!(!build.linker.append_args.unwrap());
+    }
 
     Ok(())
 }
