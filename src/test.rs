@@ -543,10 +543,10 @@ fn test_execute_linker_with_build_info(settings : &Settings) -> Result<(), Box<d
     assert_eq!(args.len(), linker_args.len() + library_args.len());
 
     for arg in &linker_args {
-        assert!(args.find(|&s| s.to_str().unwrap() == arg).is_some());
+        assert!(args.any(|s| s.to_str().unwrap() == arg));
     }
     for arg in &library_args {
-        assert!(args.find(|&s| s.to_str().unwrap() == arg).is_some());
+        assert!(args.any(|s| s.to_str().unwrap() == arg));
     }
 
     #[cfg(feature = "quikc-nightly")]

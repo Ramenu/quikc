@@ -156,7 +156,6 @@ pub fn compile_to_object_files(source_files : &Vec<String>,
             #[cfg(test)] 
             {
                 compilation_error.store(true, Ordering::Relaxed);
-                return;
             }
         }
     });
