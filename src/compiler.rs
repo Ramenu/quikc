@@ -9,10 +9,6 @@ use rayon::prelude::*;
 use std::path::Path;
 #[cfg(feature = "quikc-nightly")] 
     use std::process::Stdio;
-#[cfg(feature = "quikc-nightly")] 
-    use crate::example;
-#[cfg(feature = "quikc-nightly")] 
-    use crate::logger;
 use crate::flags;
 use crate::QuikcFlags;
 

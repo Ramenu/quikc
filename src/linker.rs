@@ -4,10 +4,6 @@ use color_print::{cformat, cprintln};
 
 use crate::QuikcFlags;
 use crate::flags;
-#[cfg(feature = "quikc-nightly")] 
-    use crate::example;
-#[cfg(feature = "quikc-nightly")] 
-    use crate::logger;
 
 use crate::{buildtable::BUILD_TABLE_OBJECT_FILE_DIRECTORY, build::{Build, Linker}};
 

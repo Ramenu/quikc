@@ -1,4 +1,5 @@
-use std::{process::Command, fs::{self}, env, path::Path, time::{SystemTime}, collections::HashMap, io::Write, error::Error};
+use std::{process::Command, fs::{self}, env, path::Path, time::{SystemTime}, collections::HashMap, io::Write};
+#[allow(unused_imports)]
 use crate::{defaultbuild::{GCC_AND_CLANG_LINKER_OPTIONS, GCC_COMPILER_C_EXCLUSIVE_WARNINGS, GCC_COMPILER_NONEXCLUSIVE_WARNINGS, GCC_AND_CLANG_DIALECT_OPTIONS, CLANG_COMPILER_NONEXCLUSIVE_WARNINGS, GCC_COMPILER_CPP_EXCLUSIVE_WARNINGS, GCC_COMPILER_CPP_DIALECT_OPTIONS, CLANG_COMPILER_CPP_WARNINGS, GCC_AND_CLANG_CPP_DIALECT_OPTIONS, GCC_AND_CLANG_OPTIMIZATION_OPTIONS, GCC_STATIC_ANALYSIS_OPTIONS, GCC_AND_CLANG_ENHANCED_OPTIMIZATION_OPTIONS}, build::{DEFAULT_C_STANDARD, DEFAULT_CPP_STANDARD}, version::VERSIONS};
 
 use color_print::cprintln;
@@ -452,7 +453,6 @@ fn test_compilation_after_dependency_deletion(settings : &Settings) -> Result<()
 #[cfg(test)]
 fn test_config(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
 {
-    use crate::build::DEFAULT_CPP_STANDARD;
 
     test_first_time_compilation(settings)?;
 
@@ -553,27 +553,27 @@ fn test_execute_linker_with_build_info(settings : &Settings) -> Result<(), Box<d
     {
         build.linker.append_args = Some(false);
         let cmd = build.execute_linker_with_build_info();
-        let mut args = cmd.get_args();
+        let args = cmd.get_args();
         // With append args set to false, the linker arguments should still be the same
         assert_eq!(args.len(), linker_args.len() + library_args.len());
 
         build.linker.append_args = Some(true);
         let cmd = build.execute_linker_with_build_info();
-        let mut args = cmd.get_args();
+        let args = cmd.get_args();
 
         // With append args set to true, the linker arguments should be the same as before
         assert_eq!(args.len(), linker_args.len() + library_args.len());
 
         build.package.debug_build = false;
         let cmd = build.execute_linker_with_build_info();
-        let mut args = cmd.get_args();
+        let args = cmd.get_args();
 
         // debug build set to false so should apply the optimization options
         assert_eq!(args.len(), linker_args.len() + library_args.len() + GCC_AND_CLANG_LINKER_OPTIONS.len());
 
         build.linker.args = Some(vec![]);
         let cmd = build.execute_linker_with_build_info();
-        let mut args = cmd.get_args();
+        let args = cmd.get_args();
 
         assert_eq!(args.len(), library_args.len() + GCC_AND_CLANG_LINKER_OPTIONS.len());
     }
@@ -584,7 +584,6 @@ fn test_execute_linker_with_build_info(settings : &Settings) -> Result<(), Box<d
 fn test_cmdline_flags(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
 {
     test_first_time_compilation(settings)?;
-    let build = Build::new();
     
     let run = |args : Vec<&str>| {
         #[cfg(not(feature = "quikc-nightly"))]

@@ -1,22 +1,28 @@
+#[cfg(feature = "quikc-nightly")]
 use std::{fs::{File}, io::{self, BufReader, BufRead}};
 
+#[cfg(feature = "quikc-nightly")]
 use color_print::cprintln;
 
+#[cfg(feature = "quikc-nightly")]
 use crate::build::BUILD_CONFIG_FILE;
 
 
+#[cfg(feature = "quikc-nightly")]
 pub enum FieldType
 {
     CompilerArgs,
     LinkerArgs
 }
 
+#[cfg(feature = "quikc-nightly")]
 fn read_lines(file_name : &str) -> io::Result<io::Lines<BufReader<File>>>
 {
     let file = File::open(file_name)?;
     Ok(io::BufReader::new(file).lines())
 }
 
+#[cfg(feature = "quikc-nightly")]
 fn get_field_parent(field : FieldType) -> &'static str
 {
     match field {
@@ -25,6 +31,7 @@ fn get_field_parent(field : FieldType) -> &'static str
     }
 }
 
+#[cfg(feature = "quikc-nightly")]
 pub fn print_missing_field(field_missing : &str, field : FieldType)
 {
     let mut line_num = 0;

@@ -1,8 +1,8 @@
 use std::{fs::{self}, process::Command, path::Path};
 use color_print::{cprintln, cformat};
 #[cfg(test)]
-    use serde::{Serialize, ser::SerializeStruct};
-use serde_derive::{Deserialize, Serialize};
+    use serde_derive::Serialize;
+use serde_derive::{Deserialize};
 #[cfg(feature = "quikc-nightly")] 
     use crate::example;
 #[cfg(feature = "quikc-nightly")] 
@@ -349,6 +349,7 @@ impl Build
     }
 
     #[inline]
+    #[allow(dead_code)]
     pub fn get_standard(&self, file_name : &str) -> &String {
         if compiler::is_c_source_file(file_name) {
             self.compiler.cstd.as_ref().unwrap()

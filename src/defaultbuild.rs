@@ -165,6 +165,7 @@ pub const GCC_AND_CLANG_ENHANCED_OPTIMIZATION_OPTIONS : [&str; 4] = [
     "-flto"
 ];
 
+#[allow(dead_code)]
 pub const GCC_PROFILING_OPTIONS : [&str; 1] = [
     "fprofile-use"
 ];
