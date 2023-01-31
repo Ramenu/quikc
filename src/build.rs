@@ -1,6 +1,7 @@
 use std::{fs::{self}, process::Command, path::Path};
 use color_print::{cprintln, cformat};
-use serde::{Serialize, ser::SerializeStruct};
+#[cfg(test)]
+    use serde::{Serialize, ser::SerializeStruct};
 use serde_derive::{Deserialize, Serialize};
 #[cfg(feature = "quikc-nightly")] 
     use crate::example;

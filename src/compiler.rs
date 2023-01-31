@@ -1,4 +1,9 @@
-use std::{path::PathBuf, process::{Command}, io::ErrorKind, sync::atomic::{AtomicBool, Ordering}};
+use std::{path::PathBuf, process::{Command}, io::ErrorKind};
+
+#[cfg(test)]
+    use std::sync::atomic::AtomicBool;
+#[cfg(test)]
+    use std::sync::atomic::Ordering;
 use color_print::{cprintln, cformat};
 use rayon::prelude::*;
 use std::path::Path;
