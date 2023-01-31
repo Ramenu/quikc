@@ -15,12 +15,11 @@ const _END_MV : usize = (line!() as usize) - _BEGIN_MV - 3;
 
 const _BEGIN_PV : usize = line!() as usize;
 pub const PATCH_VERSIONS : [&str; _END_PV] = [
+    "2",
     "1",
     "0"
 ];
 const _END_PV : usize = (line!() as usize) - _BEGIN_PV - 3;
 
 #[cfg(feature = "quikc-nightly")]
-pub const NIGHTLY_VERSIONS : [&str; 1] = [
-    concatcp!(VERSIONS[0], "-nightly")
-];
+pub const NIGHTLY_VERSION : &str = concatcp!(VERSIONS[0], "-nightly");
