@@ -1,4 +1,5 @@
 use std::{process::Command, fs::{self}, env, path::Path, time::{SystemTime}, collections::HashMap, io::Write};
+use crate::defaultbuild::GCC_AND_CLANG_LINKER_OPTIONS;
 
 use color_print::cprintln;
 use filetime::{set_file_mtime};
@@ -189,6 +190,9 @@ pub fn test_all() -> Result<(), Box<dyn std::error::Error>>
         reset()?;
 
         test_compilation_after_dependency_deletion(&settings)?;
+        reset()?;
+
+        test_execute_linker_with_build_info(&settings)?;
         reset()?;
 
         settings.use_clang = true;
@@ -496,13 +500,81 @@ fn test_config(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
     assert_eq!(build.linker.args.unwrap().len(), 2);
     assert_eq!(build.linker.libraries.unwrap().len(), 0);
 
-
     #[cfg(feature = "quikc-nightly")]
     {
         assert!(build.misc.toggle_iwyu.unwrap());
         assert!(!build.compiler.append_args.unwrap());
         assert!(!build.linker.append_args.unwrap());
     }
+
+    Ok(())
+}
+
+fn test_execute_linker_with_build_info(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
+{
+    test_first_time_compilation(settings)?;
+    let build = Build::new();
+    let cmd = build.execute_linker_with_build_info();
+    let args = cmd.get_args();
+
+    // default build configuration should have no arguments or libraries passed to it
+    assert_eq!(args.len(), 0);
+
+    let linker_args = vec!["-s".to_string(), "-flto".to_string()];
+    let library_args = vec!["-lstdc++".to_string()];
+
+    let mut build = Build::new();
+    build.linker.args = Some(linker_args.clone());
+    build.linker.libraries = Some(library_args.clone());
+    let cmd = build.execute_linker_with_build_info();
+    let mut args = cmd.get_args();
+    assert_eq!(args.len(), linker_args.len() + library_args.len());
+
+    for arg in &linker_args {
+        assert!(args.find(|&s| s.to_str().unwrap() == arg).is_some());
+    }
+    for arg in &library_args {
+        assert!(args.find(|&s| s.to_str().unwrap() == arg).is_some());
+    }
+
+    #[cfg(feature = "quikc-nightly")]
+    {
+        build.linker.append_args = Some(false);
+        let cmd = build.execute_linker_with_build_info();
+        let mut args = cmd.get_args();
+        // With append args set to false, the linker arguments should still be the same
+        assert_eq!(args.len(), linker_args.len() + library_args.len());
+
+        build.linker.append_args = Some(true);
+        let cmd = build.execute_linker_with_build_info();
+        let mut args = cmd.get_args();
+
+        // With append args set to true, the linker arguments should be the same as before
+        assert_eq!(args.len(), linker_args.len() + library_args.len());
+
+        build.package.debug_build = false;
+        let cmd = build.execute_linker_with_build_info();
+        let mut args = cmd.get_args();
+
+        // debug build set to false so should apply the optimization options
+        assert_eq!(args.len(), linker_args.len() + library_args.len() + GCC_AND_CLANG_LINKER_OPTIONS.len());
+
+        build.linker.args = Some(vec![]);
+        let cmd = build.execute_linker_with_build_info();
+        let mut args = cmd.get_args();
+
+        assert_eq!(args.len(), library_args.len() + GCC_AND_CLANG_LINKER_OPTIONS.len());
+    }
+
+    Ok(())
+}
+
+fn test_execute_compiler_with_build_info(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
+{
+    let build = Build::new();
+    // file name does not matter, only the extension as that can change the result
+    // of the command
+    let args = build.execute_compiler_with_build_info("test.c").get_args();
 
     Ok(())
 }
