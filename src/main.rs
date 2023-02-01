@@ -139,7 +139,7 @@ fn parse_args() -> QuikcFlags
             // this is a file that the user wants an assembly output of
             else if flags&QuikcFlags::ASSEMBLE == QuikcFlags::ASSEMBLE {
                 if !Path::new(arg).is_file() {
-                    eprintln!("{}", cformat!("<b><r>error</r>:</b> failed to disassemble '{}'. File does not exist", arg));
+                    eprintln!("{}", cformat!("<bold><red>error</red>:</bold> failed to disassemble '{}'. File does not exist", arg));
                     std::process::exit(1);
                 }
                 files_to_assemble.push(arg);
@@ -166,10 +166,10 @@ fn parse_args() -> QuikcFlags
 
         if flags&QuikcFlags::HIDE_OUTPUT == QuikcFlags::NONE {
             if files_to_assemble.len() == 1 {
-                cprintln!("<g><b>Successfully assembled source file: '{}' [{}]</b></g>", files_to_assemble[0], build_type);
+                cprintln!("<green><bold>Successfully assembled source file: '{}' [{}]</bold></green>", files_to_assemble[0], build_type);
             }
             else {
-                cprintln!("<g><b>Successfully assembled source files [{}]</b></g>", build_type);
+                cprintln!("<green><bold>Successfully assembled source files [{}]</bold></green>", build_type);
             }
         }
         std::process::exit(0);
