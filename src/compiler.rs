@@ -27,10 +27,11 @@ pub fn is_header_file(file : &str) -> bool
     file.ends_with(".hpp") || file.ends_with(".hxx") || file.ends_with(".hh")
 }
 #[inline]
-pub fn to_output_file(path : &mut PathBuf, directory : &str, ext : &str) -> String
+pub fn to_output_file(path : &PathBuf, directory : &str, ext : &str) -> String
 {
-    path.set_extension(ext);
-    format!("{}/{}", directory, path.file_name().unwrap().to_str().unwrap())
+    // path.file_prefix() is currently unstable so cant use that. file_stem should
+    // work for our use case though.
+    format!("{}/{}.{}", directory, path.file_stem().unwrap().to_str().unwrap(), ext)
 }
 
 #[inline]
@@ -51,6 +52,7 @@ pub fn is_gcc_or_clang(compiler_name : &str) -> bool
 {
     matches!(compiler_name, "gcc"|"g++"|"clang"|"clang++")
 }
+
 
 #[inline]
 pub fn use_default_compiler_configuration(compiler : &Compiler) -> bool
@@ -106,9 +108,9 @@ pub fn compile_to_object_files(source_files : &Vec<String>,
             cprintln!("<green><bold>Compiling </bold>'{}'...</green>", file);
         }
 
-        let mut out_file_path = PathBuf::from(file);
-        let out = to_output_file(&mut out_file_path, BUILD_TABLE_OBJECT_FILE_DIRECTORY, "o");
-        let dep_name = to_output_file(&mut out_file_path, BUILD_TABLE_DEPS_DIRECTORY, "d");
+        let out_file_path = PathBuf::from(file);
+        let out = to_output_file(&out_file_path, BUILD_TABLE_OBJECT_FILE_DIRECTORY, "o");
+        let dep_name = to_output_file(&out_file_path, BUILD_TABLE_DEPS_DIRECTORY, "d");
 
         // Generate the file's dependencies
         Command::new(&build_info.compiler.compiler)
@@ -142,7 +144,7 @@ pub fn compile_to_object_files(source_files : &Vec<String>,
         
         if !output.status.success() {
             let s = String::from_utf8_lossy(&output.stderr);
-            eprintln!("{}\n{}", s, cformat!("<bold><red>error</red>:</bold> Failed to compile '{}'\nTerminating compilation.", file));
+            eprintln!("{}\n{}", s, cformat!("<bold><red>error</red>:</bold> Failed to compile '{}'\nTerminating program.", file));
 
             // If there is a object file present from earlier compilations, remove it so that
             // the next time the program is run, it will know that an error occurred so it can
