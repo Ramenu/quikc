@@ -143,6 +143,7 @@ fn parse_args() -> QuikcFlags
                     std::process::exit(1);
                 }
                 files_to_assemble.push(arg);
+                break;
             }
         }
     }
