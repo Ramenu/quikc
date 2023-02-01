@@ -1,20 +1,30 @@
 use std::{path::{PathBuf, Path}, fs::{File, self, Metadata}, time::UNIX_EPOCH, sync::{atomic::{AtomicBool, Ordering}}, collections::{HashSet, HashMap}, io::Write};
 
+use const_format::concatcp;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use walkdir::WalkDir;
 
-use crate::{compiler::{self, INCLUDE_PATH}};
-
+use crate::{compiler::{self, INCLUDE_PATH}, flags, QuikcFlags};
+use bitflags::bitflags;
 
 pub const BUILD_TABLE_DIRECTORY : &str = "./buildinfo";
-pub const BUILD_TABLE_OBJECT_FILE_DIRECTORY : &str = "./buildinfo/obj";
-pub const BUILD_TABLE_FILE : &str = "./buildinfo/table";
-pub const BUILD_TABLE_DEPS_DIRECTORY : &str = "./buildinfo/deps";
+pub const BUILD_TABLE_OBJECT_FILE_DIRECTORY : &str = concatcp!(BUILD_TABLE_DIRECTORY, "/obj");
+pub const BUILD_TABLE_FILE : &str = concatcp!(BUILD_TABLE_DIRECTORY, "/table");
+pub const BUILD_TABLE_DEPS_DIRECTORY : &str = concatcp!(BUILD_TABLE_DIRECTORY, "/deps");
+pub const BUILD_TABLE_ASM_DIRECTORY : &str = concatcp!(BUILD_TABLE_DIRECTORY, "/asm");
+
+bitflags! {
+    struct BuildTableFlags : u8 {
+        const NONE = 0;
+        const ANY_DEPENDENCIES_CHANGED = 1 << 0;
+        const WRITE_TO_FILE = 1 << 1;
+    }
+}
 
 pub struct BuildTable
 {
     table : HashMap<String, u64>,
-    any_dependencies_changed : bool
+    flags : BuildTableFlags
 }
 
 #[inline]
@@ -23,7 +33,7 @@ pub fn get_duration_since_modified(metadata : &Metadata) -> u64
     (metadata.modified().unwrap().duration_since(UNIX_EPOCH).unwrap().as_millis()) as u64
 }
 
-fn file_modified_since_last_build(source_file_path : &mut PathBuf, 
+fn file_modified_since_last_build(source_file_path : &PathBuf, 
                                   source_file_name : &str,
                                   is_header_file : bool,
                                   time : u64,
@@ -40,14 +50,26 @@ fn file_modified_since_last_build(source_file_path : &mut PathBuf,
             return true;
         }
         
-        // only check for object file if the source isnt a header
+        // only check for object/assembly file if the source isnt a header
         if !is_header_file {
-            let object_file = compiler::to_output_file(source_file_path, BUILD_TABLE_OBJECT_FILE_DIRECTORY, "o");
-            
+
+            // If the user wants an assembly output, check if an assembly version already exists
+            // and if it does, then recompilation is not necessary
+            if flags()&QuikcFlags::ASSEMBLE != QuikcFlags::NONE {
+                let assembly_file = compiler::to_output_file(source_file_path, BUILD_TABLE_ASM_DIRECTORY, "s");
+                if Path::new(&assembly_file).exists() {
+                    return false;
+                }
+            }
+
             // If the object file does exist, compilation was most likely successful, if not
             // then re-compilation is necessary
-            if Path::new(&object_file).exists() {
-                return false;
+            else {
+                let object_file = compiler::to_output_file(source_file_path, BUILD_TABLE_OBJECT_FILE_DIRECTORY, "o");
+                
+                if Path::new(&object_file).exists() {
+                    return false;
+                }
             }
             return true;
         }
@@ -61,7 +83,7 @@ fn file_modified_since_last_build(source_file_path : &mut PathBuf,
 impl BuildTable
 {
 
-    pub fn new(old_table : &mut HashMap<String, u64>) -> BuildTable
+    pub fn new(old_table : &mut HashMap<String, u64>, write_to_file : bool) -> BuildTable
     {
 
         // Create build object file directory
@@ -74,12 +96,16 @@ impl BuildTable
         }
 
         if !Path::new(BUILD_TABLE_FILE).is_file() {
-            File::create(BUILD_TABLE_FILE).expect("Failed to create file");
+            File::create(BUILD_TABLE_FILE).expect("Failed to create build table file");
+        }
+
+        if !Path::new(BUILD_TABLE_ASM_DIRECTORY).is_dir() {
+            std::fs::create_dir(BUILD_TABLE_ASM_DIRECTORY).expect("Failed to create build assembly directory");
         }
 
         let file_contents = fs::read_to_string(BUILD_TABLE_FILE).expect("Failed to read file");
         let mut table = HashMap::new();
-        let mut any_dependencies_changed = false;
+        let mut flags = BuildTableFlags::NONE;
         
         // If the file is empty, then we do not have to check if any modifications were 
         // made and can simply just add the all header files to the table
@@ -101,7 +127,7 @@ impl BuildTable
                     old_table.insert(key, value);
                 }
                 else if compiler::is_header_file(&key){
-                    any_dependencies_changed = true;
+                    flags |= BuildTableFlags::ANY_DEPENDENCIES_CHANGED;
                 }
             }
         
@@ -125,7 +151,7 @@ impl BuildTable
                                                                     duration,
                                                                         old_table) {
                             table.insert(path_str_no_relative.to_string(), duration);
-                            any_dependencies_changed = true;
+                            flags |= BuildTableFlags::ANY_DEPENDENCIES_CHANGED;
                         }
                     }
                 }
@@ -148,12 +174,16 @@ impl BuildTable
                     }
                 }
             }
-            any_dependencies_changed = true;
+            flags |= BuildTableFlags::ANY_DEPENDENCIES_CHANGED;
+        }
+
+        if write_to_file {
+            flags |= BuildTableFlags::WRITE_TO_FILE;
         }
 
         BuildTable {
             table,
-            any_dependencies_changed
+            flags
         }
     }
 
@@ -189,10 +219,10 @@ impl BuildTable
     }
 
     pub fn needs_to_be_recompiled(&mut self,
-                                  source_file_path : &mut PathBuf,
+                                  source_file_path : &PathBuf,
                                   old_table : &HashMap<String, u64>) -> bool
     {
-        let source_file_name = source_file_path.to_str().unwrap().to_string();
+        let source_file_name = source_file_path.to_str().unwrap();
 
 
         // check if source file has changed (note we still need to check if any dependencies have changed to update
@@ -203,10 +233,10 @@ impl BuildTable
                                                false, 
                                                source_modified_duration,
                                                old_table) {
-            self.table.insert(source_file_name, source_modified_duration);
+            self.table.insert(source_file_name.to_string(), source_modified_duration);
             return true;
         }
-        else if self.any_dependencies_changed {
+        else if self.flags&BuildTableFlags::ANY_DEPENDENCIES_CHANGED == BuildTableFlags::ANY_DEPENDENCIES_CHANGED {
             let dependencies = self.get_file_dependencies(&source_file_name);
             const LARGE_NUMBER_OF_FILES : usize = 50;
 
@@ -279,7 +309,9 @@ impl BuildTable
     #[inline]
     pub fn set_any_dependencies_changed(&mut self, source_files_changed : bool) 
     {
-        self.any_dependencies_changed |= source_files_changed;
+        if source_files_changed {
+            self.flags |= BuildTableFlags::ANY_DEPENDENCIES_CHANGED;
+        }
     }
 
     #[cfg(test)]
@@ -292,11 +324,12 @@ impl BuildTable
 
 impl Drop for BuildTable
 {
-    #[inline]
     fn drop(&mut self)
     {
-        // No point of writing to file if none of the dependencies changed
-        if self.any_dependencies_changed {
+        // No point of writing to file if none of the dependencies changed, and writing to file must be
+        // explicitly enabled
+        if self.flags&BuildTableFlags::ANY_DEPENDENCIES_CHANGED == BuildTableFlags::ANY_DEPENDENCIES_CHANGED &&
+           self.flags&BuildTableFlags::WRITE_TO_FILE == BuildTableFlags::WRITE_TO_FILE {
             let mut f = File::create(BUILD_TABLE_FILE).expect("Failed to create build table file");
             for (k, v) in &self.table {
                 f.write_all(format!("{k}={v}\n").as_bytes()).expect("Failed to write to build table file");

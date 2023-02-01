@@ -8,7 +8,7 @@ use serde_derive::{Deserialize};
 #[cfg(feature = "quikc-nightly")] 
     use crate::logger;
 
-use crate::{defaultbuild::{GCC_COMPILER_NONEXCLUSIVE_WARNINGS, GCC_COMPILER_C_EXCLUSIVE_WARNINGS, GCC_COMPILER_CPP_DIALECT_OPTIONS, GCC_COMPILER_CPP_EXCLUSIVE_WARNINGS, GCC_STATIC_ANALYSIS_OPTIONS, GCC_AND_CLANG_DIALECT_OPTIONS, CLANG_COMPILER_NONEXCLUSIVE_WARNINGS, CLANG_COMPILER_CPP_WARNINGS, GCC_AND_CLANG_OPTIMIZATION_OPTIONS, GCC_AND_CLANG_ENHANCED_OPTIMIZATION_OPTIONS, GCC_AND_CLANG_LINKER_OPTIONS, GCC_AND_CLANG_CPP_DIALECT_OPTIONS}, compiler::{self, use_default_compiler_configuration, select_default_compiler, INCLUDE_PATH}, buildtable::{BUILD_TABLE_OBJECT_FILE_DIRECTORY, BUILD_TABLE_DIRECTORY, BUILD_TABLE_FILE}, linker, SOURCE_DIRECTORY, QuikcFlags, flags};
+use crate::{defaultbuild::{GCC_COMPILER_NONEXCLUSIVE_WARNINGS, GCC_COMPILER_C_EXCLUSIVE_WARNINGS, GCC_COMPILER_CPP_DIALECT_OPTIONS, GCC_COMPILER_CPP_EXCLUSIVE_WARNINGS, GCC_STATIC_ANALYSIS_OPTIONS, GCC_AND_CLANG_DIALECT_OPTIONS, CLANG_COMPILER_NONEXCLUSIVE_WARNINGS, CLANG_COMPILER_CPP_WARNINGS, GCC_AND_CLANG_OPTIMIZATION_OPTIONS, GCC_AND_CLANG_ENHANCED_OPTIMIZATION_OPTIONS, GCC_AND_CLANG_LINKER_OPTIONS, GCC_AND_CLANG_CPP_DIALECT_OPTIONS}, compiler::{self, use_default_compiler_configuration, select_default_compiler, INCLUDE_PATH}, buildtable::{BUILD_TABLE_OBJECT_FILE_DIRECTORY, BUILD_TABLE_DIRECTORY, BUILD_TABLE_FILE}, linker, SOURCE_DIRECTORY, QuikcFlags, flags, logger::{error}, assembler::use_default_assembler_configuration};
 
 pub const BUILD_CONFIG_FILE : &str = "./Build.toml";
 pub const BUILD_CONFIG_CACHE_FILE : &str = "./buildinfo/.buildcache";
@@ -57,14 +57,22 @@ pub struct Misc
 
 #[cfg_attr(test, derive(Serialize))]
 #[derive(Deserialize, PartialEq, Default)]
+pub struct Assembler
+{
+    pub assembler : String,
+    pub args : Option<Vec<String>>
+}
+
+#[cfg_attr(test, derive(Serialize))]
+#[derive(Deserialize, PartialEq, Default)]
 pub struct BuildOption
 {
     pub package : Package,
     pub compiler : Option<Compiler>,
     pub linker : Option<Linker>,
-    pub misc : Option<Misc>
+    pub misc : Option<Misc>,
+    pub assembler : Option<Assembler>
 }
-
 
 #[cfg_attr(test, derive(Serialize))]
 #[derive(Deserialize, PartialEq, Default)]
@@ -73,7 +81,8 @@ pub struct Build
     pub package : Package,
     pub compiler : Compiler,
     pub linker : Linker,
-    pub misc : Misc
+    pub misc : Misc,
+    pub assembler : Assembler
 }
 
 #[cfg(feature = "quikc-nightly")]
@@ -152,7 +161,6 @@ impl Build
                         config.compiler.compiler);
             }
         }
-
         // Make sure the cached toml exists before comparing the files
         if let Some(cached_toml) = cached_toml {
             // Check if the configuration file has changed since the last build, if so we need to remove all the object
@@ -186,6 +194,19 @@ impl Build
 
         config.package.name = toml_config.package.name;
         config.package.debug_build = toml_config.package.debug_build;
+        if toml_config.assembler.is_some() {
+            config.assembler = toml_config.assembler.unwrap();
+        }
+        else if !compiler::is_gcc_or_clang(&config.compiler.compiler) &&
+               flags()&QuikcFlags::HIDE_VERBOSE_OUTPUT == QuikcFlags::NONE {
+            error("assembler not specified in 'Build.toml' and compiler vendor is unknown. If 
+                        you want to assemble any source files, please specify an assembler in 'Build.toml'");
+            std::process::exit(1);
+        }
+        else {
+            config.assembler.assembler = config.compiler.compiler.to_owned();
+        }
+
         
         // If using nightly features, notify the user that some of the features can break compilation
         #[cfg(feature = "quikc-nightly")]
@@ -220,11 +241,9 @@ impl Build
         config
     }
 
-    pub fn execute_compiler_with_build_info(&self, file : &str) -> Command
+    fn append_compiler_args(&self, cmd : &mut Command, file : &str)
     {
-        let compiler_args = &self.compiler.args;
 
-        let mut cmd = Command::new(&self.compiler.compiler);
         // The only variable that cannot really be overridden is whether or not
         // the build is being compiled in debug mode
         if self.package.debug_build {
@@ -304,18 +323,25 @@ impl Build
             #[cfg(feature = "quikc-nightly")]
             {
                 if let Some(true) = self.compiler.append_args {
-                    cmd.args(compiler_args.as_ref().unwrap().iter());
+                    cmd.args(self.compiler.args.as_ref().unwrap().iter());
                 }
             }
-            return cmd;
+            return;
         }
 
         // If default configuration is not set, then use the user's custom flags
-        if let Some(compiler_args) = compiler_args {
+        if let Some(compiler_args) = &self.compiler.args {
             cmd.args(compiler_args.iter());
         }
-        cmd
 
+    }
+
+    pub fn execute_compiler_with_build_info(&self, file : &str) -> Command
+    {
+
+        let mut cmd = Command::new(&self.compiler.compiler);
+        self.append_compiler_args(&mut cmd, file);
+        cmd
     }
 
     pub fn execute_linker_with_build_info(&self) -> Command
@@ -357,6 +383,23 @@ impl Build
         else {
             self.compiler.cppstd.as_ref().unwrap()
         }
+    }
+
+    pub fn execute_assembler_with_build_info(&self, file : &str) -> Command
+    {
+        let mut cmd = Command::new(&self.assembler.assembler);
+
+        // if a default assembler configuration is being used, then we can just
+        // append the compiler arguments to the assembler (since the assembler 
+        // being used is just the compiler)
+        if use_default_assembler_configuration(&self.assembler.args) {
+            self.append_compiler_args(&mut cmd, file);
+        }
+        else {
+            cmd.args(self.assembler.args.as_ref().unwrap().iter());
+        }
+        
+        cmd
     }
 
 }
