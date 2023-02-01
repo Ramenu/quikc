@@ -1,5 +1,7 @@
-use std::{collections::HashMap, process::Command, path::{PathBuf, Path}, sync::atomic::AtomicBool};
+use std::{collections::HashMap, path::{PathBuf, Path}};
 
+#[cfg(test)]
+    use std::sync::atomic::{AtomicBool};
 use color_print::{cprintln, cformat};
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 
@@ -24,8 +26,8 @@ fn compile_to_asm_files(source_files : &Vec<&String>,
         }
 
         let out_file = compiler::to_output_file(&PathBuf::from(&file), BUILD_TABLE_ASM_DIRECTORY, "s");
-        let output = build.execute_assembler_with_build_info(&file)
-                                        .args([INCLUDE_PATH_FLAG, &file, "-S", "-o", &out_file])
+        let output = build.execute_assembler_with_build_info(file)
+                                        .args([INCLUDE_PATH_FLAG, file, "-S", "-o", &out_file])
                                         .output()
                                         .expect("Failed to execute assembler");
 

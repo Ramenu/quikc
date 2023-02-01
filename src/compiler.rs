@@ -27,7 +27,7 @@ pub fn is_header_file(file : &str) -> bool
     file.ends_with(".hpp") || file.ends_with(".hxx") || file.ends_with(".hh")
 }
 #[inline]
-pub fn to_output_file(path : &PathBuf, directory : &str, ext : &str) -> String
+pub fn to_output_file(path : &Path, directory : &str, ext : &str) -> String
 {
     // path.file_prefix() is currently unstable so cant use that. file_stem should
     // work for our use case though.

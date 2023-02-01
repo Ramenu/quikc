@@ -179,7 +179,7 @@ fn quikc_benchmark() -> Result<(), Box<dyn std::error::Error>>
         let mut tools = Tools::new(true);
         benchmark_fn("time to retrieve source files on first compilation",&mut || {walker::retrieve_source_files(SOURCE_DIRECTORY, 
                                 &mut tools.build_table,
-                                &mut tools.old_table);});
+                                &tools.old_table);});
     }
 
     // Benchmark retrieving source files speed when a dependency has changed
@@ -191,13 +191,13 @@ fn quikc_benchmark() -> Result<(), Box<dyn std::error::Error>>
         let mut tools = Tools::new(true);
         benchmark_fn("time to retrieve source files on header file change",&mut || {walker::retrieve_source_files(SOURCE_DIRECTORY, 
                                 &mut tools.build_table,
-                                &mut tools.old_table);});
+                                &tools.old_table);});
     }
 
     {
         let mut tools = Tools::new(true);
         benchmark_fn("time to check if a file needs to be recompiled", &mut || {
-            tools.build_table.needs_to_be_recompiled(&mut PathBuf::from("./src/device.cpp"), 
+            tools.build_table.needs_to_be_recompiled(&PathBuf::from("./src/device.cpp"), 
                                                      &tools.old_table);
         });
     }

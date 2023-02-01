@@ -18,12 +18,12 @@ fn source_dependency_missing(dir : &str, build_table : &mut BuildTable) -> bool
 
     let mut source_file_path = String::new();
     for path in paths {
-        let mut path = path.unwrap().path();
+        let path = path.unwrap().path();
         let mut exists = false;
         let object_file_path = &path.to_str().unwrap().to_string();
 
         for ext in SOURCE_EXTENSIONS {
-            source_file_path = to_output_file(&mut path, dir, ext);
+            source_file_path = to_output_file(&path, dir, ext);
             if Path::new(&source_file_path).exists() {
                 exists = true;
                 break;
@@ -57,7 +57,7 @@ pub fn retrieve_source_files(dir: &str,
     for path in paths.flatten() {
         let retrieved_path = path.path();
         let path_str = retrieved_path.to_str().unwrap();
-        if compiler::is_cpp_source_file(&path_str) || compiler::is_c_source_file(&path_str) {
+        if compiler::is_cpp_source_file(path_str) || compiler::is_c_source_file(path_str) {
             has_source_file = true;
 
             if source_dependency_missing ||

@@ -33,7 +33,7 @@ pub fn get_duration_since_modified(metadata : &Metadata) -> u64
     (metadata.modified().unwrap().duration_since(UNIX_EPOCH).unwrap().as_millis()) as u64
 }
 
-fn file_modified_since_last_build(source_file_path : &PathBuf, 
+fn file_modified_since_last_build(source_file_path : &Path, 
                                   source_file_name : &str,
                                   is_header_file : bool,
                                   time : u64,
@@ -133,7 +133,7 @@ impl BuildTable
         
 
             for path in WalkDir::new(INCLUDE_PATH) {
-                let mut path = path.unwrap().path().to_path_buf();
+                let path = path.unwrap().path().to_path_buf();
                 if path.is_file() {
                     let path_str = path.to_str().unwrap().to_string();
                     let is_header_file = compiler::is_header_file(&path_str);
@@ -145,7 +145,7 @@ impl BuildTable
                     if is_header_file {
                         let metadata = path.metadata().unwrap();
                         let duration = get_duration_since_modified(&metadata);
-                        if file_modified_since_last_build(&mut path, 
+                        if file_modified_since_last_build(&path, 
                                                                 path_str_no_relative, 
                                                                     true,
                                                                     duration,
@@ -219,7 +219,7 @@ impl BuildTable
     }
 
     pub fn needs_to_be_recompiled(&mut self,
-                                  source_file_path : &PathBuf,
+                                  source_file_path : &Path,
                                   old_table : &HashMap<String, u64>) -> bool
     {
         let source_file_name = source_file_path.to_str().unwrap();
@@ -229,7 +229,7 @@ impl BuildTable
         // the build table)
         let source_modified_duration = get_duration_since_modified(&source_file_path.metadata().unwrap());
         if file_modified_since_last_build(source_file_path, 
-                                               &source_file_name, 
+                                               source_file_name, 
                                                false, 
                                                source_modified_duration,
                                                old_table) {
@@ -237,7 +237,7 @@ impl BuildTable
             return true;
         }
         else if self.flags&BuildTableFlags::ANY_DEPENDENCIES_CHANGED == BuildTableFlags::ANY_DEPENDENCIES_CHANGED {
-            let dependencies = self.get_file_dependencies(&source_file_name);
+            let dependencies = self.get_file_dependencies(source_file_name);
             const LARGE_NUMBER_OF_FILES : usize = 50;
 
             // Doing this in parallel can actually be significantly slower if there aren't a lot of
@@ -248,13 +248,13 @@ impl BuildTable
                 dependencies.par_iter().for_each(|dependency| {
                     // sometimes the compiler shows '\' for line breaks, so we need to ignore those
                     if dependency != "\\" {
-                        let mut dependency_path = PathBuf::from(dependency);
+                        let dependency_path = PathBuf::from(dependency);
                         // some dependencies may have been deleted or moved to different locations
                         // since last compilation so its important to check if it exists first
                         if dependency_path.exists() {
                             let source_metadata = dependency_path.metadata().expect("Failed to retrieve metadata from file");
                             let duration = get_duration_since_modified(&source_metadata);
-                            if file_modified_since_last_build(&mut dependency_path, 
+                            if file_modified_since_last_build(&dependency_path, 
                                                                     dependency, 
                                                                     true,
                                                                     duration,
@@ -276,11 +276,11 @@ impl BuildTable
 
             for dependency in dependencies {
                 if dependency != "\\" {
-                    let mut dependency_path = PathBuf::from(&dependency);
+                    let dependency_path = PathBuf::from(&dependency);
                     if dependency_path.exists() {
                         let source_metadata = dependency_path.metadata().expect("Failed to retrieve metadata from file");
                         let duration = get_duration_since_modified(&source_metadata);
-                        if file_modified_since_last_build(&mut dependency_path, 
+                        if file_modified_since_last_build(&dependency_path, 
                                                                 &dependency, 
                                                                 true,
                                                                 duration,

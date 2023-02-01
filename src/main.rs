@@ -60,7 +60,7 @@ fn main()
 
     let source_files = walker::retrieve_source_files(SOURCE_DIRECTORY, 
                                                                     &mut build_table,
-                                                                    &mut old_table);
+                                                                    &old_table);
     if !source_files.is_empty() {
         let compilation_successful = compiler::compile_to_object_files(&source_files, &build_config);
 
