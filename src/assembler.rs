@@ -1,11 +1,11 @@
-use std::{collections::HashMap, path::{PathBuf, Path}};
+use std::{path::{PathBuf, Path}, fs};
 
 #[cfg(test)]
     use std::sync::atomic::{AtomicBool};
 use color_print::{cprintln, cformat};
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 
-use crate::{walker, SOURCE_DIRECTORY, buildtable::{BuildTable, BUILD_TABLE_ASM_DIRECTORY}, build::Build, flags, QuikcFlags, compiler::{self, INCLUDE_PATH_FLAG}};
+use crate::{SOURCE_DIRECTORY, buildtable::{BUILD_TABLE_ASM_DIRECTORY}, build::Build, flags, QuikcFlags, compiler::{self, INCLUDE_PATH_FLAG}};
 
 
 #[inline]
@@ -56,18 +56,25 @@ fn compile_to_asm_files(source_files : &Vec<&String>,
 }
 
 pub fn assemble_files(files : &Vec<&String>, 
-                      build : &Build,
-                      build_table : &mut BuildTable,
-                      old_table : &HashMap<String, u64>) -> bool
+                      build : &Build) -> bool
 {
+    if !Path::new(BUILD_TABLE_ASM_DIRECTORY).exists() {
+        fs::create_dir(BUILD_TABLE_ASM_DIRECTORY).expect("Failed to create directory");
+    }
+
     // If there are no files specified, then just assume the user wants to
     // assemble all of the source files
     if files.is_empty() {
-        let source_files = walker::retrieve_source_files(SOURCE_DIRECTORY, build_table, old_table);
-        if source_files.is_empty() {
-            return true;
+        let paths = fs::read_dir(SOURCE_DIRECTORY).expect("Failed to read from directory");
+        let mut files = Vec::new();
+        for file in paths.flatten() {
+            let path = file.path();
+            let file_str = path.to_str().unwrap();
+            if compiler::is_c_source_file(file_str) || compiler::is_cpp_source_file(file_str) {
+                files.push(file_str.to_string());
+            }
         }
-        return compile_to_asm_files(&source_files.iter().collect(), build);
+        return compile_to_asm_files(&files.iter().collect(), build);
     }
     compile_to_asm_files(files, build)
 }

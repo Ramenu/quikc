@@ -98,10 +98,6 @@ impl BuildTable
             File::create(BUILD_TABLE_FILE).expect("Failed to create build table file");
         }
 
-        if !Path::new(BUILD_TABLE_ASM_DIRECTORY).is_dir() {
-            std::fs::create_dir(BUILD_TABLE_ASM_DIRECTORY).expect("Failed to create build assembly directory");
-        }
-
         let file_contents = fs::read_to_string(BUILD_TABLE_FILE).expect("Failed to read file");
         let mut table = HashMap::new();
         let mut flags = BuildTableFlags::NONE;

@@ -2,7 +2,6 @@ use std::{path::Path, collections::HashMap};
 
 use assembler::assemble_files;
 use build::Build;
-use buildtable::BuildTable;
 use color_print::{cprintln, cformat};
 use bitflags::bitflags;
 use once_cell::sync::OnceCell;
@@ -163,9 +162,7 @@ fn parse_args() -> QuikcFlags
         // states (or make some other compromise), which is annoying and more bug-prone.
         INSTANCE.set(flags).unwrap();
         let build = Build::new();
-        let mut old_table = HashMap::new();
-        let mut build_table = BuildTable::new(&mut old_table);
-        assemble_files(&files_to_assemble, &build, &mut build_table, &old_table);
+        assemble_files(&files_to_assemble, &build);
 
         let build_type = match build.package.debug_build {
             true => "debug",
