@@ -56,7 +56,7 @@ fn main()
     INSTANCE.set(parse_args()).unwrap();
     let build_config = Build::new();
     let mut old_table = HashMap::new();
-    let mut build_table = buildtable::BuildTable::new(&mut old_table, true);
+    let mut build_table = buildtable::BuildTable::new(&mut old_table);
 
     let source_files = walker::retrieve_source_files(SOURCE_DIRECTORY, 
                                                                     &mut build_table,
@@ -154,10 +154,17 @@ fn parse_args() -> QuikcFlags
     }
 
     if flags&QuikcFlags::ASSEMBLE == QuikcFlags::ASSEMBLE {
+        // NOTE: BuildTable::drop() won't be called because we will
+        // exit the program before it can write to the file. This is useful
+        // because we don't want to modify any of the file times. Only
+        // downside to this is that the program will reassemble the files
+        // every single time, but running assembler is not that frequent.
+        // If we do call drop(), then we have to sync the assembly/compiled
+        // states (or make some other compromise), which is annoying and more bug-prone.
         INSTANCE.set(flags).unwrap();
         let build = Build::new();
         let mut old_table = HashMap::new();
-        let mut build_table = BuildTable::new(&mut old_table, false);
+        let mut build_table = BuildTable::new(&mut old_table);
         assemble_files(&files_to_assemble, &build, &mut build_table, &old_table);
 
         let build_type = match build.package.debug_build {

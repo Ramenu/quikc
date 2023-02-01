@@ -17,7 +17,6 @@ bitflags! {
     struct BuildTableFlags : u8 {
         const NONE = 0;
         const ANY_DEPENDENCIES_CHANGED = 1 << 0;
-        const WRITE_TO_FILE = 1 << 1;
     }
 }
 
@@ -55,7 +54,7 @@ fn file_modified_since_last_build(source_file_path : &Path,
 
             // If the user wants an assembly output, check if an assembly version already exists
             // and if it does, then recompilation is not necessary
-            if flags()&QuikcFlags::ASSEMBLE != QuikcFlags::NONE {
+            if flags()&QuikcFlags::ASSEMBLE == QuikcFlags::ASSEMBLE {
                 let assembly_file = compiler::to_output_file(source_file_path, BUILD_TABLE_ASM_DIRECTORY, "s");
                 if Path::new(&assembly_file).exists() {
                     return false;
@@ -83,7 +82,7 @@ fn file_modified_since_last_build(source_file_path : &Path,
 impl BuildTable
 {
 
-    pub fn new(old_table : &mut HashMap<String, u64>, write_to_file : bool) -> BuildTable
+    pub fn new(old_table : &mut HashMap<String, u64>) -> BuildTable
     {
 
         // Create build object file directory
@@ -135,12 +134,12 @@ impl BuildTable
             for path in WalkDir::new(INCLUDE_PATH) {
                 let path = path.unwrap().path().to_path_buf();
                 if path.is_file() {
-                    let path_str = path.to_str().unwrap().to_string();
-                    let is_header_file = compiler::is_header_file(&path_str);
+                    let path_str = path.to_str().unwrap();
+                    let is_header_file = compiler::is_header_file(path_str);
 
                     // compiler doesnt show relative path sometimes so we need to address that
                     let path_str_no_relative = if let Some(stripped) = path_str.strip_prefix("./") 
-                        { stripped } else { &path_str };
+                        { stripped } else { path_str };
 
                     if is_header_file {
                         let metadata = path.metadata().unwrap();
@@ -162,11 +161,11 @@ impl BuildTable
                 let path = path.unwrap().path().to_path_buf();
 
                 if path.is_file() {
-                    let path_str = path.to_str().unwrap().to_string();
-                    let is_header_file = compiler::is_header_file(&path_str);
+                    let path_str = path.to_str().unwrap();
+                    let is_header_file = compiler::is_header_file(path_str);
                     // compiler doesnt show relative path sometimes so we need to address that
                     let path_str_no_relative = if let Some(stripped) = path_str.strip_prefix("./") 
-                        { stripped } else { &path_str };
+                        { stripped } else { path_str };
                     if is_header_file {
                         let metadata = path.metadata().unwrap();
                         let duration = get_duration_since_modified(&metadata);
@@ -177,10 +176,6 @@ impl BuildTable
             flags |= BuildTableFlags::ANY_DEPENDENCIES_CHANGED;
         }
 
-        if write_to_file {
-            flags |= BuildTableFlags::WRITE_TO_FILE;
-        }
-
         BuildTable {
             table,
             flags
@@ -189,9 +184,8 @@ impl BuildTable
 
     pub fn get_file_dependencies(&self, source_file_name : &str) -> HashSet<String>
     {
-        let mut path = PathBuf::from(source_file_name);
-        path.set_extension("");
-        let file_name = path.file_name().unwrap().to_str().unwrap();
+        let path = Path::new(source_file_name);
+        let file_name = path.file_stem().unwrap().to_str().unwrap();
         let dep_name = BUILD_TABLE_DEPS_DIRECTORY.to_string() + "/" + file_name + ".d";
 
         if !Path::new(&dep_name).is_file() {
@@ -312,6 +306,9 @@ impl BuildTable
         if source_files_changed {
             self.flags |= BuildTableFlags::ANY_DEPENDENCIES_CHANGED;
         }
+        else {
+            self.flags ^= BuildTableFlags::ANY_DEPENDENCIES_CHANGED;
+        }
     }
 
     #[cfg(test)]
@@ -328,8 +325,7 @@ impl Drop for BuildTable
     {
         // No point of writing to file if none of the dependencies changed, and writing to file must be
         // explicitly enabled
-        if self.flags&BuildTableFlags::ANY_DEPENDENCIES_CHANGED == BuildTableFlags::ANY_DEPENDENCIES_CHANGED &&
-           self.flags&BuildTableFlags::WRITE_TO_FILE == BuildTableFlags::WRITE_TO_FILE {
+        if self.flags&BuildTableFlags::ANY_DEPENDENCIES_CHANGED == BuildTableFlags::ANY_DEPENDENCIES_CHANGED {
             let mut f = File::create(BUILD_TABLE_FILE).expect("Failed to create build table file");
             for (k, v) in &self.table {
                 f.write_all(format!("{k}={v}\n").as_bytes()).expect("Failed to write to build table file");

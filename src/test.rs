@@ -29,12 +29,12 @@ pub struct Settings
 
 impl Tools
 {
-    pub fn new(have_bt_write_to_file : bool) -> Tools
+    pub fn new() -> Tools
     {
         let build_config = Build::new();
         let mut old_table = HashMap::new();
         let source_files = Vec::new();
-        let build_table = BuildTable::new(&mut old_table, have_bt_write_to_file);
+        let build_table = BuildTable::new(&mut old_table);
 
         Tools {
             build_config,
@@ -235,7 +235,7 @@ fn test_quikc_init(settings : &Settings) ->  Result<(), Box<dyn std::error::Erro
 fn test_first_time_compilation(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
 {
     initialize_project(true, false, settings)?;
-    let mut tools = Tools::new(true);
+    let mut tools = Tools::new();
     get_src_files(&mut tools);
 
     assert_eq!(tools.source_files.len(), TOTAL_SOURCE_FILES);
@@ -263,7 +263,7 @@ fn test_recompilation(settings : &Settings) -> Result<(), Box<dyn std::error::Er
     {
         let source_file_to_modify = get_source_file("main.c");
         modify_file_time(source_file_to_modify.as_str())?;
-        let mut tools = Tools::new(true);
+        let mut tools = Tools::new();
         get_src_files(&mut tools);
 
         // Should be only 1 file that was added, since we modified one file only
@@ -282,7 +282,7 @@ fn test_recompilation(settings : &Settings) -> Result<(), Box<dyn std::error::Er
     {
         let header_file_to_modify = format!("{}/{}", INCLUDE_PATH, "hi.h");
         modify_file_time(header_file_to_modify.as_str())?;
-        let mut tools = Tools::new(true);
+        let mut tools = Tools::new();
         get_src_files(&mut tools);
 
         // 2 source files depend on the header
@@ -309,7 +309,7 @@ fn test_invalid_file_recompiles(settings : &Settings) -> Result<(), Box<dyn std:
         // TOTAL_SOURCE_FILES + 1 because we added an invalid file
         const TOTAL_FILES : usize = TOTAL_SOURCE_FILES + 1;
 
-        let mut tools = Tools::new(true);
+        let mut tools = Tools::new();
         get_src_files(&mut tools);
 
         assert_eq!(tools.source_files.len(), TOTAL_FILES);
@@ -324,7 +324,7 @@ fn test_invalid_file_recompiles(settings : &Settings) -> Result<(), Box<dyn std:
     }
 
     // Now we compile again
-    let mut tools = Tools::new(true);
+    let mut tools = Tools::new();
     get_src_files(&mut tools);
 
     // The invalid file should have been the only file that needed to be recompiled
@@ -341,7 +341,7 @@ fn test_recompile_after_config_change(settings : &Settings) -> Result<(), Box<dy
     let build_config_file_new = format!("{TEST_FILES_DIR}/{BUILD_CONFIG_FILE}");
     fs::copy(build_config_file_new, BUILD_CONFIG_FILE)?;
 
-    let mut tools = Tools::new(true);
+    let mut tools = Tools::new();
     get_src_files(&mut tools);
 
     // All of the source files should be recompiled since the build config file has been changed
@@ -368,7 +368,7 @@ fn test_recompile_after_deletion(settings : &Settings) -> Result<(), Box<dyn std
     const NUM_FILES_AFTER_DELETION : usize = TOTAL_SOURCE_FILES - 1;
     // Once the file is removed, recompilation should begin
     {
-        let mut tools = Tools::new(true);
+        let mut tools = Tools::new();
         get_src_files(&mut tools);
 
         assert_eq!(tools.source_files.len(), NUM_FILES_AFTER_DELETION);
@@ -393,7 +393,7 @@ fn test_recompilation_after_deleting_binary(settings : &Settings) -> Result<(), 
     test_first_time_compilation(settings)?;
     fs::remove_file(TEST_PACKAGE_NAME)?;
 
-    let mut tools = Tools::new(true);
+    let mut tools = Tools::new();
     get_src_files(&mut tools);
 
     assert_eq!(tools.source_files.len(), 0);
@@ -434,7 +434,7 @@ fn test_compilation_after_dependency_deletion(settings : &Settings) -> Result<()
     set_file_mtime(&mainc_source, time_modified_mainc.into())?;
     set_file_mtime(&hic_source, time_modified_hic.into())?;
 
-    let mut tools = Tools::new(true);
+    let mut tools = Tools::new();
     get_src_files(&mut tools);
 
     // 2 source files had the dependency, with the dependency removed, they were changed, so

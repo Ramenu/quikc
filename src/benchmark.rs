@@ -172,11 +172,11 @@ fn quikc_benchmark() -> Result<(), Box<dyn std::error::Error>>
     reset()?;
 
     benchmark_fn("time to initialize build configuration", &mut || {Build::new();});
-    benchmark_fn("time to initialize build table", &mut || {BuildTable::new(&mut HashMap::new(), true);});
+    benchmark_fn("time to initialize build table", &mut || {BuildTable::new(&mut HashMap::new());});
 
     // Benchmark first time retrieving source file speed
     {
-        let mut tools = Tools::new(true);
+        let mut tools = Tools::new();
         benchmark_fn("time to retrieve source files on first compilation",&mut || {walker::retrieve_source_files(SOURCE_DIRECTORY, 
                                 &mut tools.build_table,
                                 &tools.old_table);});
@@ -188,14 +188,14 @@ fn quikc_benchmark() -> Result<(), Box<dyn std::error::Error>>
         // Since we didn't actually compile any files, just make a fake object file so that the program
         // will actually behave as intended
         File::create(format!("{}/{}", BUILD_TABLE_OBJECT_FILE_DIRECTORY, "device.o"))?;
-        let mut tools = Tools::new(true);
+        let mut tools = Tools::new();
         benchmark_fn("time to retrieve source files on header file change",&mut || {walker::retrieve_source_files(SOURCE_DIRECTORY, 
                                 &mut tools.build_table,
                                 &tools.old_table);});
     }
 
     {
-        let mut tools = Tools::new(true);
+        let mut tools = Tools::new();
         benchmark_fn("time to check if a file needs to be recompiled", &mut || {
             tools.build_table.needs_to_be_recompiled(&PathBuf::from("./src/device.cpp"), 
                                                      &tools.old_table);
@@ -203,7 +203,7 @@ fn quikc_benchmark() -> Result<(), Box<dyn std::error::Error>>
     }
 
     {
-        let tools = Tools::new(true);
+        let tools = Tools::new();
         benchmark_fn("time to check for a file's dependencies", &mut || {
             tools.build_table.get_file_dependencies(&tools.build_config.compiler.compiler);
         });
