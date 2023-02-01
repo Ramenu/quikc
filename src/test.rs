@@ -8,7 +8,7 @@ use filetime::{set_file_mtime};
 #[cfg(feature = "quikc-nightly")]
 use crate::version::NIGHTLY_VERSION;
 
-use crate::{build::{BUILD_CONFIG_FILE, Build}, SOURCE_DIRECTORY, compiler::{INCLUDE_PATH, compile_to_object_files, is_c_source_file, is_cpp_source_file, is_header_file}, buildtable::{BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY, get_duration_since_modified}, walker, linker::link_files, set_flags};
+use crate::{build::{BUILD_CONFIG_FILE, Build}, SOURCE_DIRECTORY, compiler::{INCLUDE_PATH, compile_to_object_files, is_c_source_file, is_cpp_source_file, is_header_file}, buildtable::{BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY, get_duration_since_modified, BUILD_TABLE_ASM_DIRECTORY}, walker, linker::link_files, set_flags, assembler};
 
 const TOTAL_SOURCE_FILES : usize = 3;
 const TEST_FILES_DIR : &str = "../testfiles";
@@ -29,12 +29,12 @@ pub struct Settings
 
 impl Tools
 {
-    pub fn new() -> Tools
+    pub fn new(have_bt_write_to_file : bool) -> Tools
     {
         let build_config = Build::new();
         let mut old_table = HashMap::new();
         let source_files = Vec::new();
-        let build_table = BuildTable::new(&mut old_table);
+        let build_table = BuildTable::new(&mut old_table, have_bt_write_to_file);
 
         Tools {
             build_config,
@@ -82,8 +82,7 @@ fn write_to_config(build_config : &Build) -> Result<(), Box<dyn std::error::Erro
 #[inline]
 fn get_src_files(tools : &mut Tools)
 {
-    walker::retrieve_source_files(SOURCE_DIRECTORY, 
-                                  &mut tools.source_files, 
+    tools.source_files = walker::retrieve_source_files(SOURCE_DIRECTORY, 
                                   &mut tools.build_table,
                                   &mut tools.old_table);
     
@@ -151,6 +150,7 @@ fn to_test_directory() -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
+/// Deletes everything in 'testdir' and sets the current directory to the parent directory
 fn reset() -> Result<(), Box<dyn std::error::Error>>
 {
     env::set_current_dir("..")?;
@@ -235,7 +235,7 @@ fn test_quikc_init(settings : &Settings) ->  Result<(), Box<dyn std::error::Erro
 fn test_first_time_compilation(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
 {
     initialize_project(true, false, settings)?;
-    let mut tools = Tools::new();
+    let mut tools = Tools::new(true);
     get_src_files(&mut tools);
 
     assert_eq!(tools.source_files.len(), TOTAL_SOURCE_FILES);
@@ -263,7 +263,7 @@ fn test_recompilation(settings : &Settings) -> Result<(), Box<dyn std::error::Er
     {
         let source_file_to_modify = get_source_file("main.c");
         modify_file_time(source_file_to_modify.as_str())?;
-        let mut tools = Tools::new();
+        let mut tools = Tools::new(true);
         get_src_files(&mut tools);
 
         // Should be only 1 file that was added, since we modified one file only
@@ -282,7 +282,7 @@ fn test_recompilation(settings : &Settings) -> Result<(), Box<dyn std::error::Er
     {
         let header_file_to_modify = format!("{}/{}", INCLUDE_PATH, "hi.h");
         modify_file_time(header_file_to_modify.as_str())?;
-        let mut tools = Tools::new();
+        let mut tools = Tools::new(true);
         get_src_files(&mut tools);
 
         // 2 source files depend on the header
@@ -309,7 +309,7 @@ fn test_invalid_file_recompiles(settings : &Settings) -> Result<(), Box<dyn std:
         // TOTAL_SOURCE_FILES + 1 because we added an invalid file
         const TOTAL_FILES : usize = TOTAL_SOURCE_FILES + 1;
 
-        let mut tools = Tools::new();
+        let mut tools = Tools::new(true);
         get_src_files(&mut tools);
 
         assert_eq!(tools.source_files.len(), TOTAL_FILES);
@@ -324,7 +324,7 @@ fn test_invalid_file_recompiles(settings : &Settings) -> Result<(), Box<dyn std:
     }
 
     // Now we compile again
-    let mut tools = Tools::new();
+    let mut tools = Tools::new(true);
     get_src_files(&mut tools);
 
     // The invalid file should have been the only file that needed to be recompiled
@@ -341,7 +341,7 @@ fn test_recompile_after_config_change(settings : &Settings) -> Result<(), Box<dy
     let build_config_file_new = format!("{TEST_FILES_DIR}/{BUILD_CONFIG_FILE}");
     fs::copy(build_config_file_new, BUILD_CONFIG_FILE)?;
 
-    let mut tools = Tools::new();
+    let mut tools = Tools::new(true);
     get_src_files(&mut tools);
 
     // All of the source files should be recompiled since the build config file has been changed
@@ -368,7 +368,7 @@ fn test_recompile_after_deletion(settings : &Settings) -> Result<(), Box<dyn std
     const NUM_FILES_AFTER_DELETION : usize = TOTAL_SOURCE_FILES - 1;
     // Once the file is removed, recompilation should begin
     {
-        let mut tools = Tools::new();
+        let mut tools = Tools::new(true);
         get_src_files(&mut tools);
 
         assert_eq!(tools.source_files.len(), NUM_FILES_AFTER_DELETION);
@@ -393,7 +393,7 @@ fn test_recompilation_after_deleting_binary(settings : &Settings) -> Result<(), 
     test_first_time_compilation(settings)?;
     fs::remove_file(TEST_PACKAGE_NAME)?;
 
-    let mut tools = Tools::new();
+    let mut tools = Tools::new(true);
     get_src_files(&mut tools);
 
     assert_eq!(tools.source_files.len(), 0);
@@ -434,7 +434,7 @@ fn test_compilation_after_dependency_deletion(settings : &Settings) -> Result<()
     set_file_mtime(&mainc_source, time_modified_mainc.into())?;
     set_file_mtime(&hic_source, time_modified_hic.into())?;
 
-    let mut tools = Tools::new();
+    let mut tools = Tools::new(true);
     get_src_files(&mut tools);
 
     // 2 source files had the dependency, with the dependency removed, they were changed, so
@@ -471,6 +471,8 @@ fn test_config(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
     assert!(build.linker.args.is_none());
     assert!(build.linker.libraries.is_none());
     assert_eq!(build.compiler.cppstd.unwrap(), DEFAULT_CPP_STANDARD);
+    assert_eq!(build.assembler.assembler, build.compiler.compiler);
+    assert_eq!(build.assembler.args, build.compiler.args);
     #[cfg(feature = "quikc-nightly")]
     {
         assert!(build.misc.toggle_iwyu.is_none());
@@ -489,6 +491,8 @@ fn test_config(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
     build.compiler.args = Some(vec!["-Wall".to_string(), "-Wextra".to_string()]);
     build.linker.args = Some(vec!["-s".to_string(), "-flto".to_string()]);
     build.linker.libraries = Some(vec![]);
+    build.assembler.assembler = "nasm".to_string();
+    build.assembler.args = Some(vec!["-felf64".to_string()]);
 
     #[cfg(feature = "quikc-nightly")]
     {
@@ -510,6 +514,8 @@ fn test_config(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
     assert_eq!(build.compiler.args.unwrap().len(), 2);
     assert_eq!(build.linker.args.unwrap().len(), 2);
     assert_eq!(build.linker.libraries.unwrap().len(), 0);
+    assert_eq!(build.assembler.assembler, "nasm");
+    assert_eq!(build.assembler.args, Some(vec!["-felf64".to_string()]));
 
     #[cfg(feature = "quikc-nightly")]
     {
@@ -581,38 +587,39 @@ fn test_execute_linker_with_build_info(settings : &Settings) -> Result<(), Box<d
     Ok(())
 }
 
+fn run(args : &Vec<&str>) -> String
+{
+    #[cfg(not(feature = "quikc-nightly"))]
+    {
+        let cmd = Command::new("cargo")
+                        .args(["run", ".."])
+                        .args(args)
+                        .output()
+                        .unwrap()
+                        .stdout;
+        String::from_utf8_lossy(&cmd).to_string()
+    }
+    #[cfg(feature = "quikc-nightly")]
+    {
+        let cmd = Command::new("cargo")
+                        .args(["run", "--features", "quikc-nightly", ".."])
+                        .args(args)
+                        .output()
+                        .unwrap()
+                        .stdout;
+        String::from_utf8_lossy(&cmd).to_string()
+    }
+}
+
 fn test_cmdline_flags(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
 {
     test_first_time_compilation(settings)?;
-    
-    let run = |args : Vec<&str>| {
-        #[cfg(not(feature = "quikc-nightly"))]
-        {
-            let cmd = Command::new("cargo")
-                            .args(["run", ".."])
-                            .args(args)
-                            .output()
-                            .unwrap()
-                            .stdout;
-            String::from_utf8_lossy(&cmd).to_string()
-        }
-        #[cfg(feature = "quikc-nightly")]
-        {
-            let cmd = Command::new("cargo")
-                            .args(["run", "--features", "quikc-nightly", ".."])
-                            .args(args)
-                            .output()
-                            .unwrap()
-                            .stdout;
-            String::from_utf8_lossy(&cmd).to_string()
-        }
-    };
 
     // Test if the version flag works
     #[cfg(not(feature = "quikc-nightly"))]
-        assert_eq!(run(["-v"].to_vec()), concatcp!("quikc v", VERSIONS[0], "\n"));
+        assert_eq!(run(&["-v"].to_vec()), concatcp!("quikc v", VERSIONS[0], "\n"));
     #[cfg(feature = "quikc-nightly")]
-        assert_eq!(run(["-v"].to_vec()), concatcp!("quikc-nightly v", NIGHTLY_VERSION, "\n"));
+        assert_eq!(run(&["-v"].to_vec()), concatcp!("quikc-nightly v", NIGHTLY_VERSION, "\n"));
 
     // Test if -h works (disables verbose output)
     let mut build = Build::new();
@@ -622,16 +629,29 @@ fn test_cmdline_flags(settings : &Settings) -> Result<(), Box<dyn std::error::Er
     build.compiler.compiler = "not_a_real_compiler".to_string();
 
     write_to_config(&build)?;
-    assert!(!run(["-h"].to_vec()).contains("cannot use default configuration because compiler vendor is unknown, please supply your own flags."));
+    assert!(!run(&["-h"].to_vec()).contains("cannot use default configuration because compiler vendor is unknown, please supply your own flags."));
 
     // '-hh' disables all output, except for compiler messages
-    assert_eq!(run(["-hh"].to_vec()), "");
+    assert_eq!(run(&["-hh"].to_vec()), "");
 
     reset()?;
     test_first_time_compilation(settings)?;
 
     // '-c' does not link the object files
-    assert!(run(["-c"].to_vec()).contains("Successfully compiled source files to object files"));
+    assert!(run(&["-c"].to_vec()).contains("Successfully compiled source files to object files"));
+
+    // '-S' with no other arguments assembles all of the source files
+    reset()?;
+    initialize_project(true, false, settings)?;
+    run(&["-S"].to_vec());
+
+    assert_eq!(fs::read_dir(BUILD_TABLE_ASM_DIRECTORY)?.count(), TOTAL_SOURCE_FILES);
+    
+    reset()?;
+    initialize_project(true, false, settings)?;
+    run(&["-S", "./src/main.c"].to_vec());
+
+    assert_eq!(fs::read_dir(BUILD_TABLE_ASM_DIRECTORY)?.count(), 1);
 
     Ok(())
 }
@@ -879,3 +899,4 @@ fn test_execute_compiler_with_build_info(settings : &Settings) -> Result<(), Box
 
     Ok(())
 }
+
