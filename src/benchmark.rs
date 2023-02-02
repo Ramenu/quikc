@@ -31,12 +31,17 @@ static mut BENCHMARK_LOG_FILE : once_cell::sync::Lazy<File> = Lazy::new(|| {
 
 fn print_benchmark_results(task_msg : &str, mean : f64, std : f64)
 {
+    // note that this is fine since the file is being written to 
+    // in a single-threaded environment
     unsafe {
         BENCHMARK_LOG_FILE.write_all(format!("({SAMPLES}) {task_msg} 'mean': {mean} milliseconds\n").as_bytes()).unwrap();
         BENCHMARK_LOG_FILE.write_all(format!("({SAMPLES}) {task_msg} 'std': {std:.5}\n\n").as_bytes()).unwrap();
     }
 }
 
+/// Benchmarks how long it takes for a function to execute (in milliseconds).
+/// It runs the function `SAMPLES` times and calculates the mean and standard deviation.
+/// Afterwards, it will print the benchmark results with the task message provided.
 fn benchmark_fn<T>(task_msg : &str, f : &mut T) 
     where T : FnMut()
 {
@@ -55,6 +60,8 @@ fn benchmark_fn<T>(task_msg : &str, f : &mut T)
     print_benchmark_results(task_msg, mean, std);
 }
 
+/// Removes everything in the build table directory, except
+/// for the dependencies as that cannot be regenerated easily.
 fn reset() -> Result<(), Box<dyn std::error::Error>>
 {
     // Do not delete everything as the dependencies directory can't be regenerated unless
@@ -70,6 +77,7 @@ fn reset() -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
+/// Compares the benchmarks to the newest log.
 fn compare_benchmarks(file_name : &str) -> Result<(), Box<dyn std::error::Error>>
 {
     let mean_reg = regex::Regex::new(r"\(\d+\) ((?:(?:\s|\w+|\W)+|\s) 'mean'): ((?:\d|\.)+) milliseconds")?;
@@ -144,6 +152,7 @@ fn compare_benchmarks(file_name : &str) -> Result<(), Box<dyn std::error::Error>
     Ok(())
 }
 
+/// Prints a colored diff message.
 fn print_diff(msg : &str, diff : f64, unit : &str)
 {
     if diff > 0.0 {
@@ -157,6 +166,9 @@ fn print_diff(msg : &str, diff : f64, unit : &str)
     }
 }
 
+/// Benchmarks various functions and compares their times
+/// to the previous benchmark. This runs a test before the
+/// test executes to make sure everything is working as intended.
 #[test]
 fn quikc_benchmark() -> Result<(), Box<dyn std::error::Error>>
 {

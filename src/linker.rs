@@ -19,6 +19,11 @@ pub fn use_default_linker_configuration(linker : &Linker) -> bool
     linker.args.is_none()
 }
 
+/// Links the object files given in '/buildtable/obj' and produces
+/// an executable file if the linker returned no errors. If nothing
+/// went wrong, this function will return true. Otherwise, it will
+/// terminate the program. The bool return value is only used for
+/// testing purposes.
 pub fn link_files(build_config : &Build) -> bool
 {
     let mut object_files = Vec::new();

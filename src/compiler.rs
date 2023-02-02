@@ -21,11 +21,12 @@ pub const INCLUDE_PATH : &str = "./include";
 #[inline]
 pub fn is_header_file(file : &str) -> bool
 {
-    if file.ends_with(".h") {
-        return true;
-    }
-    file.ends_with(".hpp") || file.ends_with(".hxx") || file.ends_with(".hh")
+    file.ends_with(".h") || file.ends_with(".hpp") || file.ends_with(".hxx") || file.ends_with(".hh")
 }
+
+
+/// This function changes the path's extension and directory to the ones
+/// passed as arguments.
 #[inline]
 pub fn to_output_file(path : &Path, directory : &str, ext : &str) -> String
 {
@@ -96,6 +97,11 @@ pub fn select_default_compiler() -> &'static str
     std::process::exit(1);
 }
 
+/// Compiles the source files to object files, which are stored in '/buildinfo/obj'.
+/// Returns true if the compilation was successful. If the compiler encounters an
+/// error, then the program will print the compiler's error message and exit the
+/// program. This makes it questionable as to why the return type is even necessary.
+/// Essentially, the return type is only important for tests.
 pub fn compile_to_object_files(source_files : &Vec<String>,
                                build_info : &Build) -> bool
 {

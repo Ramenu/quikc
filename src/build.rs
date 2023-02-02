@@ -241,6 +241,10 @@ impl Build
         config
     }
 
+    /// Appends the command's arguments with the build configuration
+    /// flags. This should only be used for the compiler. Can be used
+    /// for the assembler as well, but only if the compiler is the same
+    /// program as the assembler.
     fn append_compiler_args(&self, cmd : &mut Command, file : &str)
     {
 
@@ -292,6 +296,7 @@ impl Build
 
                 
                 match self.compiler.compiler.as_str() {
+                    // append gcc exclusive warnings/dialect options to the command
                     "gcc"|"g++" => {
                         cmd.args(GCC_COMPILER_NONEXCLUSIVE_WARNINGS);
                         if is_c_source_file {
@@ -305,6 +310,7 @@ impl Build
                             cmd.args(GCC_STATIC_ANALYSIS_OPTIONS);
                         }
                     }
+                    // append clang exclusive warnings/dialect options to the command
                     "clang"|"clang++" => {
                         cmd.args(CLANG_COMPILER_NONEXCLUSIVE_WARNINGS);
                         if !is_c_source_file {
@@ -336,6 +342,8 @@ impl Build
 
     }
 
+    /// Returns a command that invokes the compiler with the appropriate
+    /// arguments given from the build configuration.
     pub fn execute_compiler_with_build_info(&self, file : &str) -> Command
     {
 
@@ -344,6 +352,8 @@ impl Build
         cmd
     }
 
+    /// Returns a command that invokes the linker with the appropriate
+    /// arguments given from the build configuration.
     pub fn execute_linker_with_build_info(&self) -> Command
     {
         let linker_libraries = self.linker.libraries.as_ref();
@@ -367,6 +377,8 @@ impl Build
             let linker_args = self.linker.args.as_ref().unwrap();
             cmd.args(linker_args.iter());
         }
+
+        // add any libraries to link with to the command, if there are any
         if let Some(linker_libraries) = linker_libraries {
             cmd.args(linker_libraries.iter());
         }
@@ -374,6 +386,7 @@ impl Build
 
     }
 
+    /// Returns the appropriate standard to use for the given file.
     #[inline]
     #[allow(dead_code)]
     pub fn get_standard(&self, file_name : &str) -> &String {
@@ -385,6 +398,8 @@ impl Build
         }
     }
 
+    /// Returns a command that invokes the assembler with the appropriate
+    /// arguments given from the build configuration.
     pub fn execute_assembler_with_build_info(&self, file : &str) -> Command
     {
         let mut cmd = Command::new(&self.assembler.assembler);

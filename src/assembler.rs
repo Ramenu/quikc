@@ -8,12 +8,16 @@ use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use crate::{SOURCE_DIRECTORY, buildtable::{BUILD_TABLE_ASM_DIRECTORY}, build::Build, flags, QuikcFlags, compiler::{self, INCLUDE_PATH_FLAG}};
 
 
+/// Returns true if the assembler should use the default configuration.
+/// That is, if the user did not specify any assembler arguments.
 #[inline]
 pub fn use_default_assembler_configuration(asm_args : &Option<Vec<String>>) -> bool
 {
     asm_args.is_none() || asm_args.as_ref().unwrap().is_empty()
 }
 
+/// Compiles the source files to their assembly equivalants in /buildinfo/asm
+/// with the given build configuration. Returns true if no errors occurred.
 fn compile_to_asm_files(source_files : &Vec<&String>,
                         build : &Build) -> bool
 {
@@ -55,6 +59,11 @@ fn compile_to_asm_files(source_files : &Vec<&String>,
         true
 }
 
+/// Assembles the files given by the user. If no files are given, then
+/// all of the source files in the source directory are assembled. Note
+/// that unlike compilation, it does not take into consideration whether or
+/// not the files actually need to be reassembled. It will simply reassemble
+/// them no matter what. Returns true if no errors occurred.
 pub fn assemble_files(files : &Vec<&String>, 
                       build : &Build) -> bool
 {
@@ -76,5 +85,6 @@ pub fn assemble_files(files : &Vec<&String>,
         }
         return compile_to_asm_files(&files.iter().collect(), build);
     }
+    // compile the files given by the user
     compile_to_asm_files(files, build)
 }

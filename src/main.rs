@@ -40,6 +40,7 @@ bitflags! {
 
 static INSTANCE : OnceCell<QuikcFlags> = OnceCell::new();
 
+/// Retrieves the command line flags that were passed to the program.
 #[inline]
 pub fn flags() -> QuikcFlags {
     *INSTANCE.get().unwrap()
@@ -61,26 +62,27 @@ fn main()
                                                                     &mut build_table,
                                                                     &old_table);
     if !source_files.is_empty() {
-        let compilation_successful = compiler::compile_to_object_files(&source_files, &build_config);
+        // The return value does not matter to us as the program will terminate if an
+        // error does occur.
+        compiler::compile_to_object_files(&source_files, &build_config);
 
-        if compilation_successful {
-            if flags()&QuikcFlags::DO_NOT_LINK == QuikcFlags::NONE {
-                link(&build_config);
-            } else {
-                success(&build_config);
-            }
+        if flags()&QuikcFlags::DO_NOT_LINK == QuikcFlags::NONE {
+            linker::link_files(&build_config);
         }
+        success(&build_config);
         return;
     }
     // Check if the binary exists, if not we need to relink
     if !Path::new(&build_config.package.name).is_file() && flags()&QuikcFlags::DO_NOT_LINK == QuikcFlags::NONE {
-        link(&build_config);
-        return;
+        linker::link_files(&build_config);
     }
     success(&build_config);
 
 }
 
+/// Parses the command line arguments passed to the program and
+/// returns a flag. Note that we can inline this since this is
+/// only called once in the beginning of the program.
 #[inline]
 fn parse_args() -> QuikcFlags
 {
@@ -124,10 +126,12 @@ fn parse_args() -> QuikcFlags
                     },
                     // do not link after compiling
                     'c' => flags |= QuikcFlags::DO_NOT_LINK,
+                    // run assembler on the source files, do not compile or link
                     'S' => {
                         flags |= QuikcFlags::ASSEMBLE;
                         continue;
                     },
+                    // unknown flag, print error and exit
                     _ => {
                         error("unknown option specified");
                         std::process::exit(1);
@@ -183,18 +187,14 @@ fn parse_args() -> QuikcFlags
     flags
 }
 
-#[inline]
-fn link(build_config : &Build)
-{
-    let link_successful = linker::link_files(build_config);
-    if link_successful {
-        success(build_config);
-    }
-}
-
+/// Should be called when the program has successfully compiled
+/// (and linked, depending on the arguments passed to the program).
+/// This function will print a message stating that everything went
+/// ok and will give some details about the build configuration.
 #[inline]
 fn success(build_config : &Build)
 {
+    // do not show any messages if the user does not want them
     if flags()&QuikcFlags::HIDE_OUTPUT == QuikcFlags::HIDE_OUTPUT {
         return;
     }

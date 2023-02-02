@@ -32,6 +32,7 @@ pub fn get_duration_since_modified(metadata : &Metadata) -> u64
     (metadata.modified().unwrap().duration_since(UNIX_EPOCH).unwrap().as_millis()) as u64
 }
 
+/// Returns true if the file has been modified since the last build.
 fn file_modified_since_last_build(source_file_path : &Path, 
                                   source_file_name : &str,
                                   is_header_file : bool,
@@ -81,7 +82,11 @@ fn file_modified_since_last_build(source_file_path : &Path,
 
 impl BuildTable
 {
-
+    /// Creates a new build table. This should only be created once
+    /// at the beginning of the program as creating it is expensive.
+    /// It will initialize the old table's state to the contents in
+    /// '/buildinfo/table'. This is done so that the current table
+    /// can be modified and compared to the old table.
     pub fn new(old_table : &mut HashMap<String, u64>) -> BuildTable
     {
 
@@ -126,18 +131,21 @@ impl BuildTable
                 }
             }
         
-
+            // recursively walk through the include directory
             for path in WalkDir::new(INCLUDE_PATH) {
                 let path = path.unwrap().path().to_path_buf();
                 if path.is_file() {
                     let path_str = path.to_str().unwrap();
                     let is_header_file = compiler::is_header_file(path_str);
 
-                    // compiler doesnt show relative path sometimes so we need to address that
-                    let path_str_no_relative = if let Some(stripped) = path_str.strip_prefix("./") 
-                        { stripped } else { path_str };
-
                     if is_header_file {
+                        // compiler doesnt show relative path sometimes so we need to address that
+                        let path_str_no_relative = if let Some(stripped) = path_str.strip_prefix("./") 
+                            { stripped } else { path_str };
+                        
+                        // compare the header's file current modification time with the time set in the table,
+                        // if the current time is newer, then we can insert the new time into the table and
+                        // mark 'any_dependencies_changed' as true
                         let metadata = path.metadata().unwrap();
                         let duration = get_duration_since_modified(&metadata);
                         if file_modified_since_last_build(&path, 
@@ -159,17 +167,20 @@ impl BuildTable
                 if path.is_file() {
                     let path_str = path.to_str().unwrap();
                     let is_header_file = compiler::is_header_file(path_str);
-                    // compiler doesnt show relative path sometimes so we need to address that
-                    let path_str_no_relative = if let Some(stripped) = path_str.strip_prefix("./") 
-                        { stripped } else { path_str };
                     if is_header_file {
+                        // compiler doesnt show relative path sometimes so we need to address that
+                        let path_str_no_relative = if let Some(stripped) = path_str.strip_prefix("./") 
+                            { stripped } else { path_str };
+
+                        // since the build table is empty, there is nothing to compare to, so we just insert
+                        // the file
                         let metadata = path.metadata().unwrap();
                         let duration = get_duration_since_modified(&metadata);
                         table.insert(path_str_no_relative.to_string(), duration);
+                        flags |= BuildTableFlags::ANY_DEPENDENCIES_CHANGED;
                     }
                 }
             }
-            flags |= BuildTableFlags::ANY_DEPENDENCIES_CHANGED;
         }
 
         BuildTable {
@@ -178,6 +189,9 @@ impl BuildTable
         }
     }
 
+    /// Returns the given source file's dependencies as a hashset (to avoid duplicates). 
+    /// Note that this doesn't include system header files as they very rarely change
+    /// often. Future versions may include a flag to count system dependencies as well.
     pub fn get_file_dependencies(&self, source_file_name : &str) -> HashSet<String>
     {
         let path = Path::new(source_file_name);
@@ -192,6 +206,10 @@ impl BuildTable
         
         let dependencies = move || {
             let mut count = 0;
+            // at least for clang and gcc, they output the dependencies in a format like:
+            // source.o: source.c <dependencies>
+            // This follows the make format. As you can see from this, we need to skip the
+            // first two spaces to get the actual list of dependencies.
             for (i, c) in dependencies_str_tmp.chars().enumerate() {
                 if c == ' ' {
                     count += 1;
@@ -208,6 +226,9 @@ impl BuildTable
 
     }
 
+    /// Returns true if 'source_file_path' needs to be recompiled.
+    /// Header files do not count as a source file, only files with
+    /// a .c, .cpp, .cxx, .cc extension count. 
     pub fn needs_to_be_recompiled(&mut self,
                                   source_file_path : &Path,
                                   old_table : &HashMap<String, u64>) -> bool
@@ -215,14 +236,15 @@ impl BuildTable
         let source_file_name = source_file_path.to_str().unwrap();
 
 
-        // check if source file has changed (note we still need to check if any dependencies have changed to update
-        // the build table)
+        // check if source file has changed, if so, we don't need to check if any of the dependencies
+        // changed which is best case scenario.
         let source_modified_duration = get_duration_since_modified(&source_file_path.metadata().unwrap());
         if file_modified_since_last_build(source_file_path, 
                                                source_file_name, 
                                                false, 
                                                source_modified_duration,
                                                old_table) {
+            // insert the new modification time
             self.table.insert(source_file_name.to_string(), source_modified_duration);
             return true;
         }
@@ -288,6 +310,7 @@ impl BuildTable
 
     }
 
+    /// Removes `path_str` from the build table.
     #[inline]
     pub fn erase(&mut self, path_str : &str)
     {
@@ -307,6 +330,7 @@ impl BuildTable
         }
     }
 
+    /// Returns true if the build table contains `path_str`.
     #[cfg(test)]
     pub fn contains(&self, path_str : &str) -> bool
     {
@@ -317,6 +341,7 @@ impl BuildTable
 
 impl Drop for BuildTable
 {
+    /// I doubt this is a good idea....
     fn drop(&mut self)
     {
         // No point of writing to file if none of the dependencies changed, and writing to file must be
