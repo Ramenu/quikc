@@ -253,6 +253,9 @@ impl Build
         if self.package.debug_build {
             cmd.arg("-g");
         }
+        else {
+            cmd.arg("-DNDEBUG");
+        }
 
         let is_c_source_file = compiler::is_c_source_file(file);
 
