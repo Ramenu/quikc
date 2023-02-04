@@ -110,9 +110,6 @@ pub fn compile_to_object_files(source_files : &Vec<String>,
         let compilation_error = AtomicBool::new(false);
         
     source_files.into_par_iter().for_each(|file| {
-        if show_compiling_progress {
-            cprintln!("<green><bold>Compiling </bold>'{}'...</green>", file);
-        }
 
         let out_file_path = PathBuf::from(file);
         let out = to_output_file(&out_file_path, BUILD_TABLE_OBJECT_FILE_DIRECTORY, "o");
@@ -147,6 +144,9 @@ pub fn compile_to_object_files(source_files : &Vec<String>,
                                        .args([INCLUDE_PATH_FLAG, file, "-c", "-o", &out])
                                        .output()
                                        .expect("Failed to execute compiler");
+        if show_compiling_progress {
+            cprintln!("<green><bold>Compiling </bold>'{}'...</green>", file);
+        }
         
         if !output.status.success() {
             let s = String::from_utf8_lossy(&output.stderr);
