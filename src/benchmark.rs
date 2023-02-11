@@ -5,7 +5,7 @@ use once_cell::sync::Lazy;
 
 use crate::{build::Build, walker, SOURCE_DIRECTORY, buildtable::{BUILD_TABLE_DIRECTORY, BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY, BUILD_TABLE_FILE}, test::{Tools, modify_file_time, self}};
 
-const SAMPLES : usize = 3;
+const SAMPLES : usize = 10000;
 const BENCHMARK_LOG_FILE_PATH : &str = "../benchmark.log";
 const OLD_LOG_FILE_PATH : &str = "../old-benchmark.log";
 const LOG_DIRECTORY : &str = "../logs";
@@ -24,19 +24,24 @@ static mut BENCHMARK_LOG_FILE : once_cell::sync::Lazy<File> = Lazy::new(|| {
     let hi = paths.count() + 1;
     
     if benchmark_log_file_exists {
-        fs::copy(BENCHMARK_LOG_FILE_PATH, format!("{}/old-benchmark{}.log", LOG_DIRECTORY, hi)).unwrap();
+        fs::copy(BENCHMARK_LOG_FILE_PATH, format!("{LOG_DIRECTORY}/old-benchmark{hi}.log")).unwrap();
     }
     File::create(BENCHMARK_LOG_FILE_PATH).expect("Failed to create/open benchmark log file")
 });
 
 fn print_benchmark_results(task_msg : &str, mean : f64, std : f64)
 {
+    // note that this is fine since the file is being written to 
+    // in a single-threaded environment
     unsafe {
-        BENCHMARK_LOG_FILE.write(format!("({}) {} 'mean': {} milliseconds\n", SAMPLES, task_msg, mean).as_bytes()).unwrap();
-        BENCHMARK_LOG_FILE.write(format!("({}) {} 'std': {:.5}\n\n", SAMPLES, task_msg, std).as_bytes()).unwrap();
+        BENCHMARK_LOG_FILE.write_all(format!("({SAMPLES}) {task_msg} 'mean': {mean} milliseconds\n").as_bytes()).unwrap();
+        BENCHMARK_LOG_FILE.write_all(format!("({SAMPLES}) {task_msg} 'std': {std:.5}\n\n").as_bytes()).unwrap();
     }
 }
 
+/// Benchmarks how long it takes for a function to execute (in milliseconds).
+/// It runs the function `SAMPLES` times and calculates the mean and standard deviation.
+/// Afterwards, it will print the benchmark results with the task message provided.
 fn benchmark_fn<T>(task_msg : &str, f : &mut T) 
     where T : FnMut()
 {
@@ -55,6 +60,8 @@ fn benchmark_fn<T>(task_msg : &str, f : &mut T)
     print_benchmark_results(task_msg, mean, std);
 }
 
+/// Removes everything in the build table directory, except
+/// for the dependencies as that cannot be regenerated easily.
 fn reset() -> Result<(), Box<dyn std::error::Error>>
 {
     // Do not delete everything as the dependencies directory can't be regenerated unless
@@ -70,6 +77,7 @@ fn reset() -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
+/// Compares the benchmarks to the newest log.
 fn compare_benchmarks(file_name : &str) -> Result<(), Box<dyn std::error::Error>>
 {
     let mean_reg = regex::Regex::new(r"\(\d+\) ((?:(?:\s|\w+|\W)+|\s) 'mean'): ((?:\d|\.)+) milliseconds")?;
@@ -144,6 +152,7 @@ fn compare_benchmarks(file_name : &str) -> Result<(), Box<dyn std::error::Error>
     Ok(())
 }
 
+/// Prints a colored diff message.
 fn print_diff(msg : &str, diff : f64, unit : &str)
 {
     if diff > 0.0 {
@@ -157,6 +166,9 @@ fn print_diff(msg : &str, diff : f64, unit : &str)
     }
 }
 
+/// Benchmarks various functions and compares their times
+/// to the previous benchmark. This runs a test before the
+/// test executes to make sure everything is working as intended.
 #[test]
 fn quikc_benchmark() -> Result<(), Box<dyn std::error::Error>>
 {
@@ -165,7 +177,6 @@ fn quikc_benchmark() -> Result<(), Box<dyn std::error::Error>>
     test::test_all()?;
     
     const BENCHMARK_DIR : &str = "./benchmark";
-    println!("{}", env::current_dir()?.as_os_str().to_str().unwrap());
 
     // cd into benchmark directory and remove the build table directory so we can recompile
     // from scratch
@@ -178,10 +189,9 @@ fn quikc_benchmark() -> Result<(), Box<dyn std::error::Error>>
     // Benchmark first time retrieving source file speed
     {
         let mut tools = Tools::new();
-        benchmark_fn("time to retrieve source files on first compilation",&mut ||walker::retrieve_source_files(SOURCE_DIRECTORY, 
-                                &mut tools.source_files, 
+        benchmark_fn("time to retrieve source files on first compilation",&mut || {walker::retrieve_source_files(SOURCE_DIRECTORY, 
                                 &mut tools.build_table,
-                                &mut tools.old_table));
+                                &tools.old_table);});
     }
 
     // Benchmark retrieving source files speed when a dependency has changed
@@ -191,16 +201,15 @@ fn quikc_benchmark() -> Result<(), Box<dyn std::error::Error>>
         // will actually behave as intended
         File::create(format!("{}/{}", BUILD_TABLE_OBJECT_FILE_DIRECTORY, "device.o"))?;
         let mut tools = Tools::new();
-        benchmark_fn("time to retrieve source files on header file change",&mut ||walker::retrieve_source_files(SOURCE_DIRECTORY, 
-                                &mut tools.source_files, 
+        benchmark_fn("time to retrieve source files on header file change",&mut || {walker::retrieve_source_files(SOURCE_DIRECTORY, 
                                 &mut tools.build_table,
-                                &mut tools.old_table));
+                                &tools.old_table);});
     }
 
     {
         let mut tools = Tools::new();
         benchmark_fn("time to check if a file needs to be recompiled", &mut || {
-            tools.build_table.needs_to_be_recompiled(&mut PathBuf::from("./src/device.cpp"), 
+            tools.build_table.needs_to_be_recompiled(&PathBuf::from("./src/device.cpp"), 
                                                      &tools.old_table);
         });
     }
@@ -208,7 +217,7 @@ fn quikc_benchmark() -> Result<(), Box<dyn std::error::Error>>
     {
         let tools = Tools::new();
         benchmark_fn("time to check for a file's dependencies", &mut || {
-            tools.build_table.get_file_dependencies(tools.build_config.get_compiler_name());
+            tools.build_table.get_file_dependencies(&tools.build_config.compiler.compiler);
         });
     }
 

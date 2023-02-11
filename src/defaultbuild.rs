@@ -29,13 +29,14 @@ pub const GCC_COMPILER_NONEXCLUSIVE_WARNINGS : [&str; 25] = [
     "-Wunused"
 ];
 
-
+// C exclusive warnings for CGCC
 pub const GCC_COMPILER_C_EXCLUSIVE_WARNINGS : [&str; 3] = [
     "-Wwrite-strings",
     "-Wbad-function-cast",
     "-Wjump-misses-init",
 ];
 
+// C++ exclusive warnings for GCC
 pub const GCC_COMPILER_CPP_EXCLUSIVE_WARNINGS : [&str; 13] = [
     "-Wctor-dtor-privacy",
     "-Wnon-virtual-dtor",
@@ -52,6 +53,7 @@ pub const GCC_COMPILER_CPP_EXCLUSIVE_WARNINGS : [&str; 13] = [
     "-Wvirtual-inheritance",
 ];
 
+// C/C++ warnings for clang (do not use this on gcc compilers)
 pub const CLANG_COMPILER_NONEXCLUSIVE_WARNINGS : [&str; 51] = [
     "-Werror",
     "-Wpedantic",
@@ -106,17 +108,20 @@ pub const CLANG_COMPILER_NONEXCLUSIVE_WARNINGS : [&str; 51] = [
     "-Warray-parameter"
 ];
 
-pub const GCC_AND_CLANG_DIALECT_OPTIONS : [&str; 4] = [
-    "-fPIC",
-    "-fdiagnostics-color",
-    "-ffunction-sections",
-    "-fdata-sections",
+// dialect options that are language agnostic, work on gcc and clang
+pub const GCC_AND_CLANG_DIALECT_OPTIONS : [&str; 1] = [
+    "-fdiagnostics-color"
 ];
 
-pub const GCC_AND_CLANG_CPP_DIALECT_OPTIONS : [&str; 1] = [
-    "-fstrict-enums"
+// dialect options for C++, work on gcc and clang
+pub const GCC_AND_CLANG_CPP_DIALECT_OPTIONS : [&str; 4] = [
+    "-fstrict-enums",
+    "-fno-exceptions",
+    "-fno-rtti",
+    "-fno-unwind-tables"
 ];
 
+// clang c++ exclusive warnings
 pub const CLANG_COMPILER_CPP_WARNINGS : [&str; 18] = [
     "-Wweak-vtables", 
     "-Wdtor-name",
@@ -138,11 +143,9 @@ pub const CLANG_COMPILER_CPP_WARNINGS : [&str; 18] = [
     "-Winconsistent-missing-destructor-override"
 ];
 
-pub const GCC_COMPILER_CPP_DIALECT_OPTIONS : [&str; 4] = [
-    "-fno-exceptions",
-    "-fno-unwind-tables",
+// c++ dialect options for gcc (does not work on clang)
+pub const GCC_COMPILER_CPP_DIALECT_OPTIONS : [&str; 1] = [
     "-fimplicit-constexpr",
-    "-fno-rtti"
 ];
 
 // Static analysis slows down compilation time, but can be disabled
@@ -165,6 +168,7 @@ pub const GCC_AND_CLANG_ENHANCED_OPTIMIZATION_OPTIONS : [&str; 4] = [
     "-flto"
 ];
 
+#[allow(dead_code)]
 pub const GCC_PROFILING_OPTIONS : [&str; 1] = [
     "fprofile-use"
 ];

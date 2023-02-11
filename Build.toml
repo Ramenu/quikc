@@ -7,15 +7,22 @@
     args = [] # Compiler arguments (optional)
     cstd = "c17" # C standard (optional)
     cppstd = "c++20" # C++ standard (optional)
+    # [NIGHTLY ONLY]
+    # instead of args overwriting the default compiler args, it will append to them if set to true
+    append_args = false # (optional)
     
 [linker]
     args = [] # Linker arguments (optional)
     libraries = [] # Libraries to link with (optional)
     
+    # [NIGHTLY ONLY]
+    # instead of args overwriting the default linker args, it will append to them if set to true
+    append_args = false # (optional)
+    
 [misc]
     # Level 1 = No optimizations
     # Level 2 = Most optimizations enabled
-    # Level 3 = Extreme optimizations for performance, will not produce a cross-platform binary and could
+    # Level 3 = Extreme optimizations for performance, will not produce a cross-platform binary and 
     # some parts of the program may not work as intended
     
     # By default, quikc will use level 1 for debug builds and level 2 for
@@ -24,4 +31,14 @@
     
     # Only works for GCC at the moment and really only enables '-fanalyzer'
     # be aware that turning this on will increase compilation time
-    static_analysis_enabled = false
+    static_analysis_enabled = false # (optional)
+
+    # [NIGHTLY ONLY]
+    # it is highly recommended that you DO NOT use this as
+    # it will refactor your includes and create forward decls where possible
+    # to make compilation faster. However, this can cause your compilation to 
+    # break if you use macros to generate dependencies. Software is also in
+    # alpha. See: https://github.com/include-what-you-use/include-what-you-use
+    # for more information.
+    toggle_iwyu = false # (optional)
+
