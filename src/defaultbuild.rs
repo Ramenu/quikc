@@ -109,11 +109,9 @@ pub const CLANG_COMPILER_NONEXCLUSIVE_WARNINGS : [&str; 51] = [
 ];
 
 // dialect options that are language agnostic, work on gcc and clang
-pub const GCC_AND_CLANG_DIALECT_OPTIONS : [&str; 4] = [
+pub const GCC_AND_CLANG_DIALECT_OPTIONS : [&str; 2] = [
     "-fPIC",
-    "-fdiagnostics-color",
-    "-ffunction-sections",
-    "-fdata-sections",
+    "-fdiagnostics-color"
 ];
 
 // dialect options for C++, work on gcc and clang
