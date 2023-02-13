@@ -473,11 +473,11 @@ fn test_config(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
     assert_eq!(build.compiler.cppstd.unwrap(), DEFAULT_CPP_STANDARD);
     assert_eq!(build.assembler.assembler, build.compiler.compiler);
     assert_eq!(build.assembler.args, build.compiler.args);
+    assert!(build.compiler.append_args.is_none());
+    assert!(build.linker.append_args.is_none());
     #[cfg(feature = "quikc-nightly")]
     {
         assert!(build.misc.toggle_iwyu.is_none());
-        assert!(build.compiler.append_args.is_none());
-        assert!(build.linker.append_args.is_none());
     }
 
     let mut build = Build::new();
@@ -493,12 +493,12 @@ fn test_config(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
     build.linker.libraries = Some(vec![]);
     build.assembler.assembler = "nasm".to_string();
     build.assembler.args = Some(vec!["-felf64".to_string()]);
+    build.compiler.append_args = Some(false);
+    build.linker.append_args = Some(false);
 
     #[cfg(feature = "quikc-nightly")]
     {
         build.misc.toggle_iwyu = Some(true);
-        build.compiler.append_args = Some(false);
-        build.linker.append_args = Some(false);
     }
 
     write_to_config(&build)?;
@@ -516,12 +516,12 @@ fn test_config(settings : &Settings) -> Result<(), Box<dyn std::error::Error>>
     assert_eq!(build.linker.libraries.unwrap().len(), 0);
     assert_eq!(build.assembler.assembler, "nasm");
     assert_eq!(build.assembler.args, Some(vec!["-felf64".to_string()]));
+    assert!(!build.compiler.append_args.unwrap());
+    assert!(!build.linker.append_args.unwrap());
 
     #[cfg(feature = "quikc-nightly")]
     {
         assert!(build.misc.toggle_iwyu.unwrap());
-        assert!(!build.compiler.append_args.unwrap());
-        assert!(!build.linker.append_args.unwrap());
     }
 
     Ok(())
@@ -555,34 +555,31 @@ fn test_execute_linker_with_build_info(settings : &Settings) -> Result<(), Box<d
         assert!(args.any(|s| s.to_str().unwrap() == arg));
     }
 
-    #[cfg(feature = "quikc-nightly")]
-    {
-        build.linker.append_args = Some(false);
-        let cmd = build.execute_linker_with_build_info();
-        let args = cmd.get_args();
-        // With append args set to false, the linker arguments should still be the same
-        assert_eq!(args.len(), linker_args.len() + library_args.len());
+    build.linker.append_args = Some(false);
+    let cmd = build.execute_linker_with_build_info();
+    let args = cmd.get_args();
+    // With append args set to false, the linker arguments should still be the same
+    assert_eq!(args.len(), linker_args.len() + library_args.len());
 
-        build.linker.append_args = Some(true);
-        let cmd = build.execute_linker_with_build_info();
-        let args = cmd.get_args();
+    build.linker.append_args = Some(true);
+    let cmd = build.execute_linker_with_build_info();
+    let args = cmd.get_args();
 
-        // With append args set to true, the linker arguments should be the same as before
-        assert_eq!(args.len(), linker_args.len() + library_args.len());
+    // With append args set to true, the linker arguments should be the same as before
+    assert_eq!(args.len(), linker_args.len() + library_args.len());
 
-        build.package.debug_build = false;
-        let cmd = build.execute_linker_with_build_info();
-        let args = cmd.get_args();
+    build.package.debug_build = false;
+    let cmd = build.execute_linker_with_build_info();
+    let args = cmd.get_args();
 
-        // debug build set to false so should apply the optimization options
-        assert_eq!(args.len(), linker_args.len() + library_args.len() + GCC_AND_CLANG_LINKER_OPTIONS.len());
+    // debug build set to false so should apply the optimization options
+    assert_eq!(args.len(), linker_args.len() + library_args.len() + GCC_AND_CLANG_LINKER_OPTIONS.len());
 
-        build.linker.args = Some(vec![]);
-        let cmd = build.execute_linker_with_build_info();
-        let args = cmd.get_args();
+    build.linker.args = Some(vec![]);
+    let cmd = build.execute_linker_with_build_info();
+    let args = cmd.get_args();
 
-        assert_eq!(args.len(), library_args.len() + GCC_AND_CLANG_LINKER_OPTIONS.len());
-    }
+    assert_eq!(args.len(), library_args.len() + GCC_AND_CLANG_LINKER_OPTIONS.len());
 
     Ok(())
 }
@@ -857,43 +854,40 @@ fn test_execute_compiler_with_build_info(settings : &Settings) -> Result<(), Box
         assert!(args.contains(&arg.as_str()), "At line {}: Argument '{}' should be present in args: {:?}", line!(), arg, args);
     }
 
-    #[cfg(feature = "quikc-nightly")]
-    {
-        let mut build = Build::new();
+    let mut build = Build::new();
 
-        // not valid but since we arent invoking the compiler it does not matter. we just want to see if the arguments will be
-        // appended when the actual command will be run
-        let v = vec!["-Notavalidargument", "-Appendworks!"];
-        build.compiler.args = Some(vec!["-Notavalidargument".to_string(), "-Appendworks!".to_string()]);
+    // not valid but since we arent invoking the compiler it does not matter. we just want to see if the arguments will be
+    // appended when the actual command will be run
+    let v = vec!["-Notavalidargument", "-Appendworks!"];
+    build.compiler.args = Some(vec!["-Notavalidargument".to_string(), "-Appendworks!".to_string()]);
 
-        build.compiler.append_args = Some(true);
+    build.compiler.append_args = Some(true);
 
-        let command = build.execute_compiler_with_build_info("test.c");
-        let args = command.get_args().into_iter().map(|s| s.to_str().unwrap()).collect::<Vec<&str>>();
+    let command = build.execute_compiler_with_build_info("test.c");
+    let args = command.get_args().into_iter().map(|s| s.to_str().unwrap()).collect::<Vec<&str>>();
 
-        if settings.use_clang {
-            let expected = v.into_iter()
-                                       .chain(CLANG_COMPILER_NONEXCLUSIVE_WARNINGS).collect::<Vec<&str>>().into_iter()
-                                       .chain(GCC_AND_CLANG_DIALECT_OPTIONS).collect::<Vec<&str>>().into_iter();
+    if settings.use_clang {
+        let expected = v.into_iter()
+                                    .chain(CLANG_COMPILER_NONEXCLUSIVE_WARNINGS).collect::<Vec<&str>>().into_iter()
+                                    .chain(GCC_AND_CLANG_DIALECT_OPTIONS).collect::<Vec<&str>>().into_iter();
 
-            assert!(args.contains(&DEFAULT_C_STANDARD), "At line {}: Expected argument '{}' not found in args: {:?}", line!(), DEFAULT_C_STANDARD, args);
-            assert!(args.contains(&"-g"), "At line {}: Expected argument '-g' not found in args: {:?}", line!(), args);
+        assert!(args.contains(&DEFAULT_C_STANDARD), "At line {}: Expected argument '{}' not found in args: {:?}", line!(), DEFAULT_C_STANDARD, args);
+        assert!(args.contains(&"-g"), "At line {}: Expected argument '-g' not found in args: {:?}", line!(), args);
 
-            for arg in expected {
-                assert!(args.contains(&arg), "At line {}: Argument '{}' should be present in args: {:?}", line!(), arg, args);
-            }
+        for arg in expected {
+            assert!(args.contains(&arg), "At line {}: Argument '{}' should be present in args: {:?}", line!(), arg, args);
         }
-        else {
-            let expected = v.into_iter()
-                                    .chain(GCC_COMPILER_NONEXCLUSIVE_WARNINGS).collect::<Vec<&str>>().into_iter()
-                                    .chain(GCC_AND_CLANG_DIALECT_OPTIONS).collect::<Vec<&str>>().into_iter()
-                                    .chain(GCC_COMPILER_C_EXCLUSIVE_WARNINGS).collect::<Vec<&str>>();
+    }
+    else {
+        let expected = v.into_iter()
+                                   .chain(GCC_COMPILER_NONEXCLUSIVE_WARNINGS).collect::<Vec<&str>>().into_iter()
+                                   .chain(GCC_AND_CLANG_DIALECT_OPTIONS).collect::<Vec<&str>>().into_iter()
+                                   .chain(GCC_COMPILER_C_EXCLUSIVE_WARNINGS).collect::<Vec<&str>>();
 
-            assert!(args.contains(&DEFAULT_C_STANDARD), "At line {}: Expected argument '{}' not found in args: {:?}", line!(), DEFAULT_C_STANDARD, args);
-            assert!(args.contains(&"-g"), "At line {}: Expected argument '-g' not found in args: {:?}", line!(), args);
-            for arg in expected {
-                assert!(args.contains(&arg), "At line {}: Argument '{}' should be present in args: {:?}", line!(), arg, args);
-            }
+        assert!(args.contains(&DEFAULT_C_STANDARD), "At line {}: Expected argument '{}' not found in args: {:?}", line!(), DEFAULT_C_STANDARD, args);
+        assert!(args.contains(&"-g"), "At line {}: Expected argument '-g' not found in args: {:?}", line!(), args);
+        for arg in expected {
+            assert!(args.contains(&arg), "At line {}: Argument '{}' should be present in args: {:?}", line!(), arg, args);
         }
     }
 

@@ -58,11 +58,8 @@ pub fn is_gcc_or_clang(compiler_name : &str) -> bool
 #[inline]
 pub fn use_default_compiler_configuration(compiler : &Compiler) -> bool
 {
-    #[cfg(feature = "quikc-nightly")] 
-    {
-        if let Some(true) = compiler.append_args {
-            return compiler.args.is_some();
-        }
+    if let Some(true) = compiler.append_args {
+        return compiler.args.is_some();
     }
     compiler.args.is_none()
 }
