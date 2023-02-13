@@ -10,11 +10,8 @@ use crate::{buildtable::BUILD_TABLE_OBJECT_FILE_DIRECTORY, build::{Build, Linker
 #[inline]
 pub fn use_default_linker_configuration(linker : &Linker) -> bool
 {
-    #[cfg(feature = "quikc-nightly")]
-    {
-        if let Some(true) = linker.append_args {
-            return linker.args.is_some()
-        }
+    if let Some(true) = linker.append_args {
+        return linker.args.is_some()
     }
     linker.args.is_none()
 }

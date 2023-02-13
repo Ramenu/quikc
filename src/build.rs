@@ -3,10 +3,8 @@ use color_print::{cprintln, cformat};
 #[cfg(test)]
     use serde_derive::Serialize;
 use serde_derive::{Deserialize};
-#[cfg(feature = "quikc-nightly")] 
-    use crate::example;
-#[cfg(feature = "quikc-nightly")] 
-    use crate::logger;
+use crate::example;
+use crate::logger;
 
 use crate::{defaultbuild::{GCC_COMPILER_NONEXCLUSIVE_WARNINGS, GCC_COMPILER_C_EXCLUSIVE_WARNINGS, GCC_COMPILER_CPP_DIALECT_OPTIONS, GCC_COMPILER_CPP_EXCLUSIVE_WARNINGS, GCC_STATIC_ANALYSIS_OPTIONS, GCC_AND_CLANG_DIALECT_OPTIONS, CLANG_COMPILER_NONEXCLUSIVE_WARNINGS, CLANG_COMPILER_CPP_WARNINGS, GCC_AND_CLANG_OPTIMIZATION_OPTIONS, GCC_AND_CLANG_ENHANCED_OPTIMIZATION_OPTIONS, GCC_AND_CLANG_LINKER_OPTIONS, GCC_AND_CLANG_CPP_DIALECT_OPTIONS}, compiler::{self, use_default_compiler_configuration, select_default_compiler, INCLUDE_PATH}, buildtable::{BUILD_TABLE_OBJECT_FILE_DIRECTORY, BUILD_TABLE_DIRECTORY, BUILD_TABLE_FILE}, linker, SOURCE_DIRECTORY, QuikcFlags, flags, logger::{error}, assembler::use_default_assembler_configuration};
 
@@ -31,7 +29,6 @@ pub struct Compiler
     pub args : Option<Vec<String>>,
     pub cstd : Option<String>,
     pub cppstd : Option<String>,
-    #[cfg(feature = "quikc-nightly")]
     pub append_args : Option<bool> 
 }
 
@@ -41,7 +38,6 @@ pub struct Linker
 {
     pub args : Option<Vec<String>>,
     pub libraries : Option<Vec<String>>,
-    #[cfg(feature = "quikc-nightly")]
     pub append_args : Option<bool> 
 }
 
@@ -150,9 +146,7 @@ impl Build
                                           else {format!("-std={}", config_ref.cppstd.as_ref().unwrap())});
             config.compiler.cstd = Some(if config_ref.cstd.is_none() {DEFAULT_C_STANDARD.to_string()} 
                                         else {format!("-std={}", config_ref.cstd.as_ref().unwrap())});
-            #[cfg(feature = "quikc-nightly")] {
-                config.compiler.append_args = toml_config.compiler.as_ref().unwrap().append_args;
-            }
+            config.compiler.append_args = toml_config.compiler.as_ref().unwrap().append_args;
         }
         else {
             config.compiler.compiler = select_default_compiler().to_string();
@@ -187,7 +181,6 @@ impl Build
             None => Linker {
                 args : None,
                 libraries : None,
-                #[cfg(feature = "quikc-nightly")]
                 append_args : None
             }
         };
@@ -208,33 +201,34 @@ impl Build
         }
 
         
-        // If using nightly features, notify the user that some of the features can break compilation
-        #[cfg(feature = "quikc-nightly")]
-        {
-            if flags()&QuikcFlags::HIDE_VERBOSE_OUTPUT == QuikcFlags::NONE {
+        if flags()&QuikcFlags::HIDE_VERBOSE_OUTPUT == QuikcFlags::NONE {
+            // If using nightly features, notify the user that some of the features can break compilation
+            #[cfg(feature = "quikc-nightly")] 
+            {
                 if let Some(true) = config.misc.toggle_iwyu {
                     warning("'include what you use' WILL refactor your code to only include the headers that are needed.\n\
                             This may cause your code to not compile. For more information see: https://github.com/include-what-you-use/include-what-you-use");
                 }
-                if let Some(true) = config.compiler.append_args {
-                    let args_specified = config.compiler.args.is_some();
+            }
 
-                    // give a warning here as this can override the default configuration (which the user probably
-                    // did not mean to do)
-                    if !args_specified && (flags()&QuikcFlags::HIDE_VERBOSE_OUTPUT == QuikcFlags::NONE) {
-                        logger::warning("append_args is set to true, but no args field for the compiler could be found. Try adding this line:");
-                        example::print_missing_field("args = []", example::FieldType::CompilerArgs);
-                    }
+            if let Some(true) = config.compiler.append_args {
+                let args_specified = config.compiler.args.is_some();
+
+                // give a warning here as this can override the default configuration (which the user probably
+                // did not mean to do)
+                if !args_specified  {
+                    logger::warning("append_args is set to true, but no args field for the compiler could be found. Try adding this line:");
+                    example::print_missing_field("args = []", example::FieldType::CompilerArgs);
                 }
-                if let Some(true) = config.linker.append_args {
-                    let args_specified = config.linker.args.is_some();
+            }
+            if let Some(true) = config.linker.append_args {
+                let args_specified = config.linker.args.is_some();
 
-                    // give a warning here as this can override the default configuration (which the user probably
-                    // did not mean to do)
-                    if !args_specified && (flags()&QuikcFlags::HIDE_VERBOSE_OUTPUT == QuikcFlags::NONE) {
-                        logger::warning("append_args is set to true, but no args field for the linker could be found. Try adding this line:");
-                        example::print_missing_field("args = []", example::FieldType::LinkerArgs);
-                    }
+                // give a warning here as this can override the default configuration (which the user probably
+                // did not mean to do)
+                if !args_specified {
+                    logger::warning("append_args is set to true, but no args field for the linker could be found. Try adding this line:");
+                    example::print_missing_field("args = []", example::FieldType::LinkerArgs);
                 }
             }
         }
@@ -329,11 +323,8 @@ impl Build
             }
 
             // append arguments if the flag is set
-            #[cfg(feature = "quikc-nightly")]
-            {
-                if let Some(true) = self.compiler.append_args {
-                    cmd.args(self.compiler.args.as_ref().unwrap().iter());
-                }
+            if let Some(true) = self.compiler.append_args {
+                cmd.args(self.compiler.args.as_ref().unwrap().iter());
             }
             return;
         }
@@ -369,11 +360,8 @@ impl Build
                 cmd.args(GCC_AND_CLANG_LINKER_OPTIONS);
             }
             // append arguments if the flag is set
-            #[cfg(feature = "quikc-nightly")]
-            {
-                if let Some(true) = self.linker.append_args {
-                    cmd.args(self.linker.args.as_ref().unwrap().iter());
-                }
+            if let Some(true) = self.linker.append_args {
+                cmd.args(self.linker.args.as_ref().unwrap().iter());
             }
         }
         else {
