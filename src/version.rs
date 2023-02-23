@@ -8,6 +8,7 @@ const _END_V : usize = (line!() as usize) - _BEGIN_V - 3;
 
 const _BEGIN_MV : usize = line!() as usize;
 pub const MINOR_VERSIONS : [&str; _END_MV] = [
+    "5",
     "4",
     "3",
     "2",
