@@ -14,21 +14,33 @@ class Color:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-def isFlag(s : str) -> bool:
-    return s.startswith("-")
+RECOGNIZED_FLAGS = {
+    "--embedded",
+    "--cpp",
+    "--debug"
+}
 
+def isFlag(s : str) -> bool:
+    return s.startswith("--")
+
+def abort(msg : str):
+    print(f"{Color.BOLD}{Color.FAIL}error{Color.ENDC}{Color.BOLD}:{Color.ENDC} {msg}")
+    exit(1)
 
 if __name__ == "__main__":
 
     size = len(argv)
     if size < 2 or (size >= 2 and isFlag(argv[1])):
-        print(f"{Color.BOLD}{Color.FAIL}error{Color.ENDC}{Color.BOLD}:{Color.ENDC} package name not specified")
-        exit(1)
+        abort("package name not specified")
 
     packageName = argv[1]
+
+    for i in range(2, size):
+        if not argv[i] in RECOGNIZED_FLAGS:
+            abort(f"unrecognized option \"{argv[i]}\"")
+
     createEmbeddedProject = "--embedded" in argv
     createCppProject = "--cpp" in argv
-
 
     BUILD_TOML_PATH = "./Build.toml"
     BUILD_INFO_DIR = "./buildinfo"
@@ -36,7 +48,7 @@ if __name__ == "__main__":
     BUILD_INFO_TABLE = f"{BUILD_INFO_DIR}/table"
     SOURCE_DIR = "./src"
     INCLUDE_DIR = "./include"
-    sourceFile = f"{SOURCE_DIR}/{packageName}.cpp" if createCppProject else f"{SOURCE_DIR}/{packageName}.c"
+    sourceFile = f"{SOURCE_DIR}/{packageName}.cc" if createCppProject else f"{SOURCE_DIR}/{packageName}.c"
 
     if not createCppProject:
         if not createEmbeddedProject:
@@ -72,8 +84,16 @@ int main(void)\n\
         \"-nostdinc\",\n\
         \"-fno-builtin\",\n\
         \"-fno-stack-protector\",\n\
+        \"-fno-PIC\",\n\
+        \"-fno-lto\"\n\
     ]\n\
-    append_args = true"
+    append_args = true\n\
+\n\
+[linker]\n\
+    args = [\n\
+        \"-fno-lto\"\n\
+    ]\n\
+    append_args = true\n\""
                 
     else:
         if not createEmbeddedProject:
@@ -110,8 +130,16 @@ int main()\n\
         \"-nostdinc++\",\n\
         \"-fno-builtin\",\n\
         \"-fno-stack-protector\",\n\
+        \"-fno-PIC\",\n\
+        \"-fno-lto\"\n\
     ]\n\
-    append_args = true"
+    append_args = true\n\
+\n\
+[linker]\n\
+    args = [\n\
+        \"-fno-lto\"\n\
+    ]\n\
+    append_args = true\n"
                 
 
     # this is only used for creating tests to make sure the script runs correctly
@@ -139,8 +167,7 @@ int main()\n\
                 f.write(sourceFileCode)
 
     except Exception as e:
-        print(f"{Color.BOLD}{Color.FAIL}error{Color.ENDC}{Color.BOLD}:{Color.ENDC} {e}")
-        exit(1)
+        abort(e)
 
     print(f"{Color.OKGREEN}{Color.BOLD}Successfully created package '{packageName}'. You're all ready to go! :){Color.ENDC}")
 
