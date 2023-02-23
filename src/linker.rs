@@ -29,8 +29,15 @@ pub fn link_files(build_config : &Build) -> bool
 
     for object_file in dir {
         let object_file_path = object_file.unwrap().path();
-        let object_file_path_str = object_file_path.to_str().unwrap().to_string();
-        object_files.push(object_file_path_str);
+
+        // only add object files to be linked (for extra precaution)
+        // besides, some builds, depending on the compilation flags, may
+        // store other files in the 'obj' directory
+        // e.g., clang with 'ftime-trace'
+        if object_file_path.extension().unwrap() == "o" {
+            let object_file_path_str = object_file_path.to_str().unwrap().to_string();
+            object_files.push(object_file_path_str);
+        }
     }
 
     if flags()&QuikcFlags::HIDE_OUTPUT == QuikcFlags::NONE {
@@ -38,11 +45,11 @@ pub fn link_files(build_config : &Build) -> bool
     }
 
     let cmd = build_config.execute_linker_with_build_info()
-                                    .args(object_files.iter())
-                                    .arg("-o")
-                                    .arg(&build_config.package.name)
-                                    .output()
-                                    .expect("Failed to execute linker");
+                                  .args(object_files.iter())
+                                  .arg("-o")
+                                  .arg(&build_config.package.name)
+                                  .output()
+                                  .expect("Failed to execute linker");
     
     if !cmd.status.success() {
         let err_output = String::from_utf8_lossy(&cmd.stderr);
