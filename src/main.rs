@@ -66,8 +66,11 @@ fn main()
         // error does occur.
         compiler::compile_to_object_files(&source_files, &build_config);
 
+        if !linker::link_files(&build_config) {
+            return;
+        }
         if flags()&QuikcFlags::DO_NOT_LINK == QuikcFlags::NONE {
-            linker::link_files(&build_config);
+            return;
         }
         success(&build_config);
         return;
