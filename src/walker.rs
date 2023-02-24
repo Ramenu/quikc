@@ -43,27 +43,42 @@ fn source_dependency_missing(dir : &str, build_table : &mut BuildTable) -> bool
 }
 
 /// Retrieves the source files that need to be compiled
+///
+/// Tuple consists of:
+/// 
+///*    vector of the source files
+/// 
+///*    number of files that don't need to be recompiled
+///
+///*    total source files
 pub fn retrieve_source_files(dir: &str, 
                              build_table : &mut BuildTable,
-                             old_table : &HashMap<String, u64>) -> Vec<String>
+                             old_table : &HashMap<String, u64>) -> (Vec<String>, usize, usize)
 {
     let mut source_files = Vec::new();
-    let mut has_source_file = false;
     let paths = fs::read_dir(dir).expect("Failed to read from directory");
     let source_dependency_missing = source_dependency_missing(dir, build_table);
     let mut source_file_needs_to_be_recompiled = false;
+
+    // number of files that don't need to be recompiled
+    let mut not_recompiled = 0;
+
+    let mut total_source_files = 0;
     
     // only append the c/c++ files that need to be recompiled into the vector
     for path in paths.flatten() {
         let retrieved_path = path.path();
         let path_str = retrieved_path.to_str().unwrap();
         if compiler::is_cpp_source_file(path_str) || compiler::is_c_source_file(path_str) {
-            has_source_file = true;
+            total_source_files += 1;
 
             if source_dependency_missing ||
                build_table.needs_to_be_recompiled(&retrieved_path, old_table) {
                 source_file_needs_to_be_recompiled = true;
                 source_files.push(path_str.to_string());
+            }
+            else if !source_dependency_missing {
+                not_recompiled += 1;
             }
         }
     }
@@ -74,11 +89,11 @@ pub fn retrieve_source_files(dir: &str,
 
     // If no source files were found, print an error and terminate the program as there is nothing
     // to do
-    if !has_source_file {
+    if total_source_files == 0 {
         eprintln!("{}", cformat!("<bold><red>error</red></bold>: no source files found in '{}'. Terminating program.", dir));
         std::process::exit(1);
     }
 
-    source_files
+    (source_files, not_recompiled, total_source_files)
 }
 

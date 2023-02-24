@@ -41,7 +41,7 @@ pub fn link_files(build_config : &Build) -> bool
     }
 
     if flags()&QuikcFlags::HIDE_OUTPUT == QuikcFlags::NONE {
-        cprintln!("<green><bold>Linking executable</bold> '{}'...</green>", build_config.package.name);
+        cprintln!("<s>[100%]</s> <g><s>Linking executable</s> '{}'...</g>", build_config.package.name);
     }
 
     let cmd = build_config.execute_linker_with_build_info()

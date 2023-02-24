@@ -82,9 +82,9 @@ fn write_to_config(build_config : &Build) -> Result<(), Box<dyn std::error::Erro
 #[inline]
 fn get_src_files(tools : &mut Tools)
 {
-    tools.source_files = walker::retrieve_source_files(SOURCE_DIRECTORY, 
-                                  &mut tools.build_table,
-                                  &tools.old_table);
+    (tools.source_files, _, _) = walker::retrieve_source_files(SOURCE_DIRECTORY, 
+                                                            &mut tools.build_table,
+                                                            &tools.old_table);
     
 }
 
@@ -240,7 +240,10 @@ fn test_first_time_compilation(settings : &Settings) -> Result<(), Box<dyn std::
 
     assert_eq!(tools.source_files.len(), TOTAL_SOURCE_FILES);
 
-    let compilation_success = compile_to_object_files(&tools.source_files, &tools.build_config);
+    let compilation_success = compile_to_object_files(&tools.source_files, 
+                                                            &tools.build_config, 
+                                                            0, 
+                                                            tools.source_files.len());
     assert!(compilation_success);
     assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_SOURCE_FILES);
 
@@ -268,7 +271,10 @@ fn test_recompilation(settings : &Settings) -> Result<(), Box<dyn std::error::Er
 
         // Should be only 1 file that was added, since we modified one file only
         assert_eq!(tools.source_files.len(), 1); 
-        let compilation_success = compile_to_object_files(&tools.source_files, &tools.build_config);
+        let compilation_success = compile_to_object_files(&tools.source_files, 
+                                                        &tools.build_config, 
+                                                0,
+                                                0);
 
         assert!(compilation_success);
         assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_SOURCE_FILES);
@@ -288,7 +294,10 @@ fn test_recompilation(settings : &Settings) -> Result<(), Box<dyn std::error::Er
         // 2 source files depend on the header
         assert_eq!(tools.source_files.len(), 2);
 
-        let compilation_success = compile_to_object_files(&tools.source_files, &tools.build_config);
+        let compilation_success = compile_to_object_files(&tools.source_files, 
+                                                     &tools.build_config, 
+                                             0,
+                                             0);
         assert!(compilation_success);
         assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_SOURCE_FILES);
 
@@ -313,7 +322,10 @@ fn test_invalid_file_recompiles(settings : &Settings) -> Result<(), Box<dyn std:
         get_src_files(&mut tools);
 
         assert_eq!(tools.source_files.len(), TOTAL_FILES);
-        let compilation_success = compile_to_object_files(&tools.source_files, &tools.build_config);
+        let compilation_success = compile_to_object_files(&tools.source_files, 
+                                                     &tools.build_config, 
+                                             0,
+                                             0);
 
         // Compilation should have failed since the invalid file has a error in it
         assert!(!compilation_success); 
@@ -346,7 +358,10 @@ fn test_recompile_after_config_change(settings : &Settings) -> Result<(), Box<dy
 
     // All of the source files should be recompiled since the build config file has been changed
     assert_eq!(tools.source_files.len(), TOTAL_SOURCE_FILES);
-    let compilation_success = compile_to_object_files(&tools.source_files, &tools.build_config);
+    let compilation_success = compile_to_object_files(&tools.source_files, 
+                                                    &tools.build_config, 
+                                            0,
+                                            0);
 
     assert!(compilation_success);
     assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), TOTAL_SOURCE_FILES);
@@ -373,7 +388,10 @@ fn test_recompile_after_deletion(settings : &Settings) -> Result<(), Box<dyn std
 
         assert_eq!(tools.source_files.len(), NUM_FILES_AFTER_DELETION);
 
-        let compilation_success = compile_to_object_files(&tools.source_files, &tools.build_config);
+        let compilation_success = compile_to_object_files(&tools.source_files, 
+                                                        &tools.build_config, 
+                                                0,
+                                                0);
 
         assert!(compilation_success);
         assert_eq!(fs::read_dir(BUILD_TABLE_OBJECT_FILE_DIRECTORY)?.count(), NUM_FILES_AFTER_DELETION);

@@ -58,17 +58,20 @@ fn main()
     let mut old_table = HashMap::new();
     let mut build_table = buildtable::BuildTable::new(&mut old_table);
 
-    let source_files = walker::retrieve_source_files(SOURCE_DIRECTORY, 
-                                                                    &mut build_table,
-                                                                    &old_table);
+    let (source_files, 
+        not_recompiled, 
+        total) = walker::retrieve_source_files(SOURCE_DIRECTORY, 
+                                                           &mut build_table,
+                                                           &old_table);
     if !source_files.is_empty() {
         // The return value does not matter to us as the program will terminate if an
         // error does occur.
-        compiler::compile_to_object_files(&source_files, &build_config);
+        compiler::compile_to_object_files(&source_files, &build_config, not_recompiled, total);
 
-        if flags()&QuikcFlags::DO_NOT_LINK == QuikcFlags::NONE {
+        if flags()&QuikcFlags::DO_NOT_LINK != QuikcFlags::NONE {
             return;
         }
+        linker::link_files(&build_config);
         success(&build_config);
         return;
     }

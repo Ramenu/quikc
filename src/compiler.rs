@@ -1,5 +1,5 @@
-use std::{path::PathBuf, process::{Command}, io::ErrorKind};
-
+use std::sync::{Arc, Mutex};
+use std::{path::PathBuf, process::Command, io::ErrorKind};
 #[cfg(test)]
     use std::sync::atomic::AtomicBool;
 #[cfg(test)]
@@ -100,16 +100,34 @@ pub fn select_default_compiler() -> &'static str
 /// program. This makes it questionable as to why the return type is even necessary.
 /// Essentially, the return type is only important for tests.
 pub fn compile_to_object_files(source_files : &Vec<String>,
-                               build_info : &Build) -> bool
+                               build_info : &Build,
+                               num_compiled_files : usize,
+                               mut total_source_files : usize) -> bool
 {
+    let n = Arc::new(Mutex::new(num_compiled_files));
     let show_compiling_progress = flags()&QuikcFlags::HIDE_OUTPUT == QuikcFlags::NONE;
     #[cfg(test)]
         let compilation_error = AtomicBool::new(false);
+
+    // Linking counts as an additional step
+    if flags()&QuikcFlags::DO_NOT_LINK == QuikcFlags::NONE {
+        total_source_files += 1;
+    }
         
     source_files.into_par_iter().for_each(|file| {
 
         if show_compiling_progress {
-            cprintln!("<green><bold>Compiling </bold>'{}'...</green>", file);
+            let mut n = n.lock().unwrap();
+            *n += 1;
+            let percentage = *n as f64 / total_source_files as f64 * 100.0;
+
+            // space alignment, just to make the output look neater
+            if percentage < 10.0 {
+                cprintln!("<s>[{:.0}%]</s><g><s>   Compiling </s>'{}'</g>", percentage, file);
+            }
+            else {
+                cprintln!("<s>[{:.0}%]</s><g><s>  Compiling </s>'{}'</g>", percentage, file);
+            }
         }
         
         let out_file_path = PathBuf::from(file);
