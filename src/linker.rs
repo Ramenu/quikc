@@ -56,7 +56,11 @@ pub fn link_files(build_config : &Build) -> bool
         eprintln!("{}\n{}", 
                     cformat!("<bold><red>error</red>:</bold> Failed to link executable '{}'", build_config.package.name), 
                     err_output);
-        return false;
+
+        #[cfg(not(test))]
+            std::process::exit(1);
+        #[cfg(test)]
+            return false;
     }
 
     true
