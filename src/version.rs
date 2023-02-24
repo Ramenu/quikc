@@ -17,6 +17,7 @@ const _END_MV : usize = (line!() as usize) - _BEGIN_MV - 3;
 
 const _BEGIN_PV : usize = line!() as usize;
 pub const PATCH_VERSIONS : [&str; _END_PV] = [
+    "2",
     "1",
     "0"
 ];
