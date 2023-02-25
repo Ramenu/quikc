@@ -125,6 +125,11 @@ pub fn compile_to_object_files(source_files : &Vec<String>,
             if percentage < 10.0 {
                 cprintln!("<s>[{:.0}%]</s><g><s>   Compiling </s>'{}'</g>", percentage, file);
             }
+            // if compiling object files only, percentage can reach 100% so we have to align
+            // the text properly if this occurs
+            else if percentage >= 100.0 {
+                cprintln!("<s>[{:.0}%]</s><g><s> Compiling </s>'{}'</g>", percentage, file);
+            }
             else {
                 cprintln!("<s>[{:.0}%]</s><g><s>  Compiling </s>'{}'</g>", percentage, file);
             }
