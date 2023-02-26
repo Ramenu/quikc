@@ -5,6 +5,7 @@
 
 
 branch_name=$(git rev-parse --abbrev-ref HEAD)
+export rustc_version=$(rustc --version)
 
 if [[ "$branch_name" == "nightly" || "$branch_name" == "nightly-dev" ]]; then
     if [[ "$1" == "-d" ]]; then
