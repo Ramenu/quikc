@@ -8,7 +8,7 @@ use filetime::{set_file_mtime};
 #[cfg(feature = "quikc-nightly")]
 use crate::version::NIGHTLY_VERSION;
 
-use crate::{build::{BUILD_CONFIG_FILE, Build}, SOURCE_DIRECTORY, compiler::{INCLUDE_PATH, compile_to_object_files, is_c_source_file, is_cpp_source_file, is_header_file}, buildtable::{BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY, get_duration_since_modified, BUILD_TABLE_ASM_DIRECTORY}, walker, linker::link_files, set_flags};
+use crate::{build::{BUILD_CONFIG_FILE, Build}, SOURCE_DIRECTORY, compiler::{INCLUDE_PATH, compile_to_object_files, is_c_source_file, is_cpp_source_file, is_header_file}, buildtable::{BuildTable, BUILD_TABLE_OBJECT_FILE_DIRECTORY, get_duration_since_modified, BUILD_TABLE_ASM_DIRECTORY}, walker, linker::link_files, set_flags, version::RUSTC_VERSION};
 
 const TOTAL_SOURCE_FILES : usize = 3;
 const TEST_FILES_DIR : &str = "../testfiles";
@@ -632,9 +632,9 @@ fn test_cmdline_flags(settings : &Settings) -> Result<(), Box<dyn std::error::Er
 
     // Test if the version flag works
     #[cfg(not(feature = "quikc-nightly"))]
-        assert_eq!(run(&["-v"].to_vec()), concatcp!("quikc v", VERSIONS[0], "\n"));
+        assert_eq!(run(&["-v"].to_vec()), concatcp!("quikc v", VERSIONS[0], "\n\nBuilt using ", RUSTC_VERSION, "\n"));
     #[cfg(feature = "quikc-nightly")]
-        assert_eq!(run(&["-v"].to_vec()), concatcp!("quikc-nightly v", NIGHTLY_VERSION, "\n"));
+        assert_eq!(run(&["-v"].to_vec()), concatcp!("quikc-nightly v", NIGHTLY_VERSION, "\n\nBuilt using ", RUSTC_VERSION, "\n"));
 
     // Test if -h works (disables verbose output)
     let mut build = Build::new();

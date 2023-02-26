@@ -1,5 +1,7 @@
 use const_format::concatcp;
 
+pub const RUSTC_VERSION : &str = env!("rustc_version");
+
 const _BEGIN_V : usize = line!() as usize;
 pub const VERSIONS : [&str; _END_V] = [
     concatcp!("0", ".", MINOR_VERSIONS[0], ".", PATCH_VERSIONS[0])

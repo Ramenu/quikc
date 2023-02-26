@@ -6,7 +6,7 @@ use color_print::{cprintln, cformat};
 use bitflags::bitflags;
 use once_cell::sync::OnceCell;
 
-use crate::logger::error;
+use crate::{logger::error, version::RUSTC_VERSION};
 
 
 mod compiler;
@@ -114,6 +114,7 @@ fn parse_args() -> QuikcFlags
                                 println!("quikc-nightly v{}", version::NIGHTLY_VERSION);
                             #[cfg(not(feature = "quikc-nightly"))]
                                 println!("quikc v{}", version::VERSIONS[0]);
+                            println!("\nBuilt using {}", RUSTC_VERSION);
                         }
                     },
                     // hide verbose output
