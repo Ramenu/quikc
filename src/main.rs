@@ -114,7 +114,7 @@ fn parse_args() -> QuikcFlags
                                 println!("quikc-nightly v{}", version::NIGHTLY_VERSION);
                             #[cfg(not(feature = "quikc-nightly"))]
                                 println!("quikc v{}", version::VERSIONS[0]);
-                            println!("\nBuilt using {}", RUSTC_VERSION);
+                            println!("\nbuilt using {}", RUSTC_VERSION);
                         }
                     },
                     // hide verbose output
